@@ -1,0 +1,2 @@
+This directory, and in particular the TunerConstants.java file, are the
+Phoenix6 equivalent of the ``src/main/deploy/swerve`` directory for YAGSL.

@@ -1,0 +1,26 @@
+name: Dependency Submission
+
+# Purpose: Generate and submit Gradle dependency metadata (graph) to Gradle’s services.
+# Trigger: Push to main branch only.
+# Effect: Helps with dependency insight, conflict detection, and build analytics.
+
+on:
+  push:
+    branches: [ 'main' ]
+
+permissions:
+  contents: write
+
+jobs:
+  dependency-submission:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@v6
+    - name: Setup Java
+      uses: actions/setup-java@v5
+      with:
+        distribution: 'temurin'
+        java-version: 17
+    - name: Generate and submit dependency graph
+      uses: gradle/actions/dependency-submission@v5

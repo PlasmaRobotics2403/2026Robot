@@ -1,0 +1,87 @@
+Az-RBSI -- Java Root Directory
+
+--------------------
+This directory contains the basic Java files needed to define and run an FRC
+robot.  The files that should exist in this directory are listed below, along
+with a brief description of their contents and which files MUST be edited to
+include information about the specific robot being controlled.
+
+BuildConstants.java
+    Not tracked by git, used by the build system to record information about
+    the latest build of the code.  This file should NOT be altered, and will be
+    overwritten each time the code is built / compiled.
+
+Constants.java
+    A file for enumerating physical and software constants for the robot.  The
+    main Constants class should contain subsystem-specific classes that list
+    the constants for each subsystem.  This is useful for organization and
+    importing only the constants needed for a particular software module.  This
+    file MUST be modified to include the proper robot constants in the code.
+
+FieldConstants.java
+    The year-specific AprilTag and field layout file.  Teams may modify the
+    file to include additional information specific for their needs.
+
+FieldState.java
+    For 2026 - REBUILT, the field produces information that affects gameplay,
+    namely which HUB is active at different times during the match.  The file
+    converts data from the FMS into data that can be used by teams for scoring
+    control.
+
+Main.java
+    The file run by the RoboRIO virtual machine.  Do NOT alter this file.
+
+README
+    This file.
+
+Robot.java
+    The file called by ``Main.java`` and which directs the operation of the robot
+    according to the currently commanded mode (disabled, autonomous, teleop,
+    test, and simulation).  Care must be taken when modifying this module to
+    ensure proper operation of the robot.  One section that would be useful to
+    modify is the test mode, where teams can implement pre-match systems
+    testing in a known sequence.
+
+RobotContainer.java
+    A file for holding robot subsystems and commands.  This file is called
+    from ``Robot.java`` and is where all subsystems and commands should be
+    gathered and organized including button bindings for operator controls,
+    CANbus and DIO port enumeration for robot devices, and camera pose
+    information (with respect to robot center).
+
+
+--------------------
+Subdirectories:
+
+commands/
+    Commands built in separate modules (rather than in subsystem definitions or
+    inline commands in ``RobotContainer.java``) live in this directory.
+    Organization of files and subdirectories herein is left to the discrection
+    of teams.
+
+generated/
+    This directory holds the ``TunerConstants.java`` file produced by Phoenix
+    Tuner X's swerve generator  (you must generate this file for your specific
+    drivetrain -- the one included in the Az-RBSI is an example only).  It must
+    be modified as described in the AdvantageKit documentation (removal of
+    final function and final import; modification of ``kSteerInertia`` and
+    ``kDriveInertia`` constants to be ``0.004`` and ``0.025``, respectively;
+    optional "Pro" feature, set ``kSteerClosedLoopOutput`` and/or
+    ``kDriveClosedLoopOutput`` to  ``ClosedLoopOutputType.TorqueCurrentFOC``;
+    characterize the drive and turn feedforward gains [``kS``,``kV``,``kA``]
+    using the auto routines included in the Az-RBSI).
+
+subsystems/
+    The hardware definition of subsystems is done in this directory.
+    Organization of files and subdirectories herein is left to the discrection
+    of teams.
+
+util/
+    Various utility functions used by the Az-RBSI are included in this
+    directory.  Most teams will not need to modify these routines, but
+    additional utilities deemed necessary by individual teams may be placed
+    here for organizational purposes.
+
+
+--------------------
+Last Modified: 12 Jan 2026, TPEB

@@ -1,97 +1,460 @@
+// Copyright (c) 2024-2026 Az-FIRST
+// http://github.com/AZ-First
+// Copyright (c) 2021-2026 Littleton Robotics
+// http://github.com/Mechanical-Advantage
+//
+// Use of this source code is governed by a BSD
+// license that can be found in the AdvantageKit-License.md file
+// at the root directory of this project.
+//
 // Copyright (c) FIRST and other WPILib contributors.
 // Open Source Software; you can modify and/or share it under the terms of
 // the WPILib BSD license file in the root directory of this project.
 
 package frc.robot;
 
-import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
-import com.ctre.phoenix6.swerve.SwerveRequest;
+import static frc.robot.Constants.Cameras.camera0Name;
+import static frc.robot.Constants.Cameras.camera1Name;
+import static frc.robot.Constants.Cameras.robotToCamera0;
+import static frc.robot.Constants.Cameras.robotToCamera1;
 
+import com.pathplanner.lib.auto.AutoBuilder;
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
-import static edu.wpi.first.units.Units.MetersPerSecond;
-import static edu.wpi.first.units.Units.RadiansPerSecond;
-import static edu.wpi.first.units.Units.RotationsPerSecond;
+import edu.wpi.first.math.geometry.Transform2d;
+import edu.wpi.first.math.geometry.Transform3d;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.math.util.Units;
+import edu.wpi.first.wpilibj.Filesystem;
+import edu.wpi.first.wpilibj.GenericHID;
+import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.button.CommandJoystick;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
-import edu.wpi.first.wpilibj2.command.button.RobotModeTriggers;
-import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
-import frc.robot.generated.TunerConstants;
-import frc.robot.subsystems.CommandSwerveDrivetrain;
+import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
+import frc.robot.Constants.OperatorConstants;
+import frc.robot.Constants.SimCameras;
+import frc.robot.FieldConstants.AprilTagLayoutType;
+import frc.robot.commands.AutopilotCommands;
+import frc.robot.commands.DriveCommands;
+import frc.robot.subsystems.accelerometer.Accelerometer;
+import frc.robot.subsystems.drive.Drive;
+import frc.robot.subsystems.drive.SwerveConstants;
+import frc.robot.subsystems.flywheel_example.Flywheel;
+import frc.robot.subsystems.flywheel_example.FlywheelIO;
+import frc.robot.subsystems.flywheel_example.FlywheelIOSim;
+import frc.robot.subsystems.imu.ImuIO;
+import frc.robot.subsystems.imu.ImuIOPigeon2;
+import frc.robot.subsystems.imu.ImuIOSim;
+import frc.robot.subsystems.vision.CameraSweepEvaluator;
+import frc.robot.subsystems.vision.Vision;
+import frc.robot.subsystems.vision.VisionIO;
+import frc.robot.subsystems.vision.VisionIOPhotonVision;
+import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
+import frc.robot.util.Alert;
+import frc.robot.util.Alert.AlertType;
+import frc.robot.util.GetJoystickValue;
+import frc.robot.util.LoggedTunableNumber;
+import frc.robot.util.OverrideSwitches;
+import frc.robot.util.RBSIEnum.AutoType;
+import frc.robot.util.RBSIEnum.Mode;
+import frc.robot.util.RBSIPowerMonitor;
+import java.util.Set;
+import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
+import org.photonvision.PhotonCamera;
+import org.photonvision.simulation.PhotonCameraSim;
+import org.photonvision.simulation.VisionSystemSim;
 
+/** This is the location for defining robot hardware, commands, and controller button bindings. */
 public class RobotContainer {
-    private double MaxSpeed = 1.0 * TunerConstants.kSpeedAt12Volts.in(MetersPerSecond);
-    private double MaxAngularRate = RotationsPerSecond.of(0.75).in(RadiansPerSecond);
 
-    private final SwerveRequest.FieldCentric drive = new SwerveRequest.FieldCentric()
-            .withDeadband(MaxSpeed * 0.1).withRotationalDeadband(MaxAngularRate * 0.1)
-            .withDriveRequestType(DriveRequestType.OpenLoopVoltage);
-    private final SwerveRequest.SwerveDriveBrake brake = new SwerveRequest.SwerveDriveBrake();
-    private final SwerveRequest.PointWheelsAt point = new SwerveRequest.PointWheelsAt();
+  /** Define the Driver and, optionally, the Operator/Co-Driver Controllers */
+  // Replace with ``CommandPS4Controller`` or ``CommandJoystick`` if needed
+  final CommandXboxController driverController = new CommandXboxController(0); // Main Driver
 
-    private final Telemetry logger = new Telemetry(MaxSpeed);
+  final CommandXboxController operatorController = new CommandXboxController(1); // Second Operator
+  final OverrideSwitches overrides = new OverrideSwitches(2); // Console toggle switches
 
-    private final CommandXboxController joystick = new CommandXboxController(0);
+  // These two are needed for the Sweep evaluator for camera FOV simulation
+  final CommandJoystick joystick3 = new CommandJoystick(3); //  Joystick for CamersSweepEvaluator
+  private final CameraSweepEvaluator sweep;
 
-    public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
+  /** Declare the robot subsystems here ************************************ */
+  // These are the "Active Subsystems" that the robot controls
+  private final Drive m_drivebase;
 
-    public RobotContainer() {
-        configureBindings();
+  private final ImuIO m_imu;
+  private final Flywheel m_flywheel;
+
+  // ... Add additional subsystems here (e.g., elevator, arm, etc.)
+
+  // These are "Virtual Subsystems" that report information but have no motors
+  @SuppressWarnings("unused")
+  private final Accelerometer m_accel;
+
+  @SuppressWarnings("unused")
+  private final RBSIPowerMonitor m_power;
+
+  @SuppressWarnings("unused")
+  private final Vision m_vision;
+
+  /** Dashboard inputs ***************************************************** */
+  // AutoChoosers for both supported path planning types
+  private final LoggedDashboardChooser<Command> autoChooserPathPlanner;
+
+  // Input estimated battery capacity (if full, use printed value)
+  private final LoggedTunableNumber batteryCapacity =
+      new LoggedTunableNumber("Battery Amp-Hours", 18.0);
+  // EXAMPLE TUNABLE FLYWHEEL SPEED INPUT FROM DASHBOARD
+  private final LoggedTunableNumber flywheelSpeedInput =
+      new LoggedTunableNumber("Flywheel Speed", 1500.0);
+
+  // Alerts
+  private final Alert aprilTagLayoutAlert = new Alert("", AlertType.INFO);
+
+  /**
+   * Constructor for the Robot Container. This container holds subsystems, opertator interface
+   * devices, and commands.
+   */
+  public RobotContainer() {
+
+    // Instantiate Robot Subsystems based on RobotType
+    switch (Constants.getMode()) {
+      case REAL:
+        // Real robot, instantiate hardware IO implementations
+        // YAGSL drivebase, get config from deploy directory
+
+        // Get the IMU instance
+        switch (SwerveConstants.kImuType) {
+          case "pigeon2":
+            m_imu = new ImuIOPigeon2();
+            break;
+          default:
+            throw new RuntimeException("Invalid IMU type");
+        }
+
+        m_drivebase = new Drive(m_imu);
+        m_flywheel = new Flywheel(new FlywheelIOSim()); // new Flywheel(new FlywheelIOTalonFX());
+        m_vision =
+            switch (Constants.getVisionType()) {
+              case PHOTON ->
+                  new Vision(
+                      m_drivebase::addVisionMeasurement,
+                      new VisionIOPhotonVision(camera0Name, robotToCamera0),
+                      new VisionIOPhotonVision(camera1Name, robotToCamera1));
+              case NONE ->
+                  new Vision(
+                      m_drivebase::addVisionMeasurement, new VisionIO() {}, new VisionIO() {});
+              default -> null;
+            };
+        m_accel = new Accelerometer(m_imu);
+        sweep = null;
+        break;
+
+      case SIM:
+        // Sim robot, instantiate physics sim IO implementations
+        m_imu = new ImuIOSim();
+        m_drivebase = new Drive(m_imu);
+        m_flywheel = new Flywheel(new FlywheelIOSim() {});
+        m_vision =
+            new Vision(
+                m_drivebase::addVisionMeasurement,
+                new VisionIOPhotonVisionSim(camera0Name, robotToCamera0, m_drivebase::getPose),
+                new VisionIOPhotonVisionSim(camera1Name, robotToCamera1, m_drivebase::getPose));
+        m_accel = new Accelerometer(m_imu);
+
+        // CameraSweepEvaluator Construct
+        // 1) Create the vision simulation world
+        VisionSystemSim visionSim = new VisionSystemSim("CameraSweepWorld");
+        // 2) Add AprilTags (field layout)
+        visionSim.addAprilTags(FieldConstants.aprilTagLayout);
+        // 3) Create two simulated cameras
+        // Create PhotonCamera objects (names must match VisionIOPhotonVisionSim)
+        PhotonCamera camera1 = new PhotonCamera(camera0Name);
+        PhotonCamera camera2 = new PhotonCamera(camera1Name);
+
+        // Wrap them with simulation + properties (2026 API)
+        PhotonCameraSim cam1 = new PhotonCameraSim(camera1, SimCameras.kSimCamera1Props);
+        PhotonCameraSim cam2 = new PhotonCameraSim(camera2, SimCameras.kSimCamera2Props);
+
+        // 4) Register cameras with the sim
+        visionSim.addCamera(cam1, Transform3d.kZero);
+        visionSim.addCamera(cam2, Transform3d.kZero);
+        // 5) Create the sweep evaluator
+        sweep = new CameraSweepEvaluator(visionSim, cam1, cam2);
+
+        break;
+
+      default:
+        // Replayed robot, disable IO implementations
+        m_imu = new ImuIOSim();
+        m_drivebase = new Drive(m_imu);
+        m_flywheel = new Flywheel(new FlywheelIO() {});
+        m_vision =
+            new Vision(m_drivebase::addVisionMeasurement, new VisionIO() {}, new VisionIO() {});
+        m_accel = new Accelerometer(m_imu);
+        sweep = null;
+        break;
     }
 
-    private void configureBindings() {
-        // Note that X is defined as forward according to WPILib convention,
-        // and Y is defined as to the left according to WPILib convention.
-        drivetrain.setDefaultCommand(
-            // Drivetrain will execute this command periodically
-            drivetrain.applyRequest(() ->
-                drive.withVelocityX(-joystick.getLeftY() * MaxSpeed) // Drive forward with negative Y (forward)
-                    .withVelocityY(-joystick.getLeftX() * MaxSpeed) // Drive left with negative X (left)
-                    .withRotationalRate(joystick.getRightX() * MaxAngularRate) // Drive counterclockwise with negative X (left)
-            )
-        );
+    // In addition to the initial battery capacity from the Dashbaord, ``RBSIPowerMonitor`` takes
+    // all the non-drivebase subsystems for which you wish to have power monitoring; DO NOT
+    // include ``m_drivebase``, as that is automatically monitored.
+    m_power = new RBSIPowerMonitor(batteryCapacity, m_flywheel);
 
-        // Idle while the robot is disabled. This ensures the configured
-        // neutral mode is applied to the drive motors while disabled.
-        final var idle = new SwerveRequest.Idle();
-        RobotModeTriggers.disabled().whileTrue(
-            drivetrain.applyRequest(() -> idle).ignoringDisable(true)
-        );
+    // Set up the SmartDashboard Auto Chooser based on auto type
+    switch (Constants.getAutoType()) {
+      case MANUAL:
+        // This is where the "Leave Auto" will go
+        // ...
+        // Set the others to null
+        autoChooserPathPlanner = null;
+        break;
 
-        joystick.a().whileTrue(drivetrain.applyRequest(() -> brake));
-        joystick.b().whileTrue(drivetrain.applyRequest(() ->
-            point.withModuleDirection(new Rotation2d(-joystick.getLeftY(), -joystick.getLeftX()))
-        ));
+      case PATHPLANNER:
+        autoChooserPathPlanner =
+            new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
+        break;
 
-        // Run SysId routines when holding back/start and X/Y.
-        // Note that each routine should be run exactly once in a single log.
-        joystick.back().and(joystick.y()).whileTrue(drivetrain.sysIdDynamic(Direction.kForward));
-        joystick.back().and(joystick.x()).whileTrue(drivetrain.sysIdDynamic(Direction.kReverse));
-        joystick.start().and(joystick.y()).whileTrue(drivetrain.sysIdQuasistatic(Direction.kForward));
-        joystick.start().and(joystick.x()).whileTrue(drivetrain.sysIdQuasistatic(Direction.kReverse));
-
-        // Reset the field-centric heading on left bumper press.
-        joystick.leftBumper().onTrue(drivetrain.runOnce(drivetrain::seedFieldCentric));
-
-        drivetrain.registerTelemetry(logger::telemeterize);
+      default:
+        // Then, throw the error
+        throw new RuntimeException(
+            "Incorrect AUTO type selected in Constants: " + Constants.getAutoType());
     }
 
-    public Command getAutonomousCommand() {
-        // Simple drive forward auton
-        final var idle = new SwerveRequest.Idle();
-        return Commands.sequence(
-            // Reset our field centric heading to match the robot
-            // facing away from our alliance station wall (0 deg).
-            drivetrain.runOnce(() -> drivetrain.seedFieldCentric(Rotation2d.kZero)),
-            // Then slowly drive forward (away from us) for 5 seconds.
-            drivetrain.applyRequest(() ->
-                drive.withVelocityX(0.5)
-                    .withVelocityY(0)
-                    .withRotationalRate(0)
-            )
-            .withTimeout(5.0),
-            // Finally idle for the rest of auton
-            drivetrain.applyRequest(() -> idle)
-        );
+    // Define Auto commands
+    defineAutoCommands();
+    // Define SysIs Routines
+    definesysIdRoutines();
+    // Configure the button and trigger bindings
+    configureBindings();
+  }
+
+  /** Use this method to define your Autonomous commands for use with PathPlanner */
+  private void defineAutoCommands() {
+
+    // NamedCommands.registerCommand("Zero", Commands.runOnce(() -> m_drivebase.zero()));
+  }
+
+  /**
+   * Use this method to define your button->command mappings. Buttons can be created by
+   * instantiating a {@link GenericHID} or one of its subclasses ({@link
+   * edu.wpi.first.wpilibj.Joystick} or {@link XboxController}), and then passing it to a {@link
+   * edu.wpi.first.wpilibj2.command.button.JoystickButton}.
+   */
+  private void configureBindings() {
+
+    // Send the proper joystick input based on driver preference -- Set this in `Constants.java`
+    GetJoystickValue driveStickY;
+    GetJoystickValue driveStickX;
+    GetJoystickValue turnStickX;
+    switch (OperatorConstants.kDriveStyle) {
+      case GAMER:
+        driveStickY = driverController::getRightY;
+        driveStickX = driverController::getRightX;
+        turnStickX = driverController::getLeftX;
+        break;
+      default: // Includes case TANK
+        driveStickY = driverController::getLeftY;
+        driveStickX = driverController::getLeftX;
+        turnStickX = driverController::getRightX;
     }
+
+    // SET STANDARD DRIVING AS DEFAULT COMMAND FOR THE DRIVEBASE
+    m_drivebase.setDefaultCommand(
+        DriveCommands.fieldRelativeDrive(
+            m_drivebase,
+            () -> -driveStickY.value(),
+            () -> -driveStickX.value(),
+            () -> -turnStickX.value()));
+
+    // ** Example Commands -- Remap, remove, or change as desired **
+    // Press B button while driving --> ROBOT-CENTRIC
+    driverController
+        .b()
+        .onTrue(
+            Commands.runOnce(
+                () ->
+                    DriveCommands.robotRelativeDrive(
+                        m_drivebase,
+                        () -> -driveStickY.value(),
+                        () -> -driveStickX.value(),
+                        () -> turnStickX.value()),
+                m_drivebase));
+
+    // Press A button -> BRAKE
+    driverController
+        .a()
+        .whileTrue(Commands.runOnce(() -> m_drivebase.setMotorBrake(true), m_drivebase));
+
+    // Press X button --> Stop with wheels in X-Lock position
+    driverController.x().onTrue(Commands.runOnce(m_drivebase::stopWithX, m_drivebase));
+
+    // Press Y button --> Manually Re-Zero the Gyro
+    driverController
+        .y()
+        .onTrue(
+            Commands.runOnce(m_drivebase::zeroHeadingForAlliance, m_drivebase)
+                .ignoringDisable(true));
+
+    // Press RIGHT BUMPER --> Run the example flywheel
+    driverController
+        .rightBumper()
+        .whileTrue(
+            Commands.startEnd(
+                () -> m_flywheel.runVelocity(flywheelSpeedInput.get()),
+                m_flywheel::stop,
+                m_flywheel));
+
+    // Press LEFT BUMPER --> Drive to a pose 10 feet closer to the BLUE ALLIANCE wall
+    driverController
+        .leftBumper()
+        .whileTrue(
+            Commands.defer(
+                () -> {
+                  // New pose 2 feet closer to BLUE ALLIANCE wall
+                  Pose2d pose =
+                      m_drivebase
+                          .getPose()
+                          .transformBy(
+                              new Transform2d(Units.feetToMeters(-10.0), 0.0, Rotation2d.kZero));
+
+                  // Alternatively, you could define a pose in a separate module and call it here.
+                  //
+                  // Example from 2025 Reefscape:
+                  // --------
+                  // pose = ReefPoses.kBluePoleE;
+
+                  return AutopilotCommands.runAutopilot(m_drivebase, pose);
+                },
+                Set.of(m_drivebase)));
+
+    // Press POV LEFT to nudge the robot left
+    driverController
+        .povLeft()
+        .whileTrue(
+            Commands.startEnd(
+                () -> {
+                  m_drivebase.runVelocity(
+                      new ChassisSpeeds(Units.inchesToMeters(0.), Units.inchesToMeters(11.0), 0.));
+                },
+                // Stop when command ended
+                m_drivebase::stop,
+                m_drivebase));
+
+    if (Constants.getMode() == Mode.SIM) {
+      // IN SIMULATION ONLY:
+      // Double-press the A button on Joystick3 to run the CameraSweepEvaluator
+      // Use WPILib's built-in double-press binding
+      joystick3
+          .button(1)
+          .multiPress(2, 0.2)
+          .onTrue(
+              Commands.runOnce(
+                  () -> {
+                    try {
+                      sweep.runFullSweep(
+                          Filesystem.getOperatingDirectory()
+                              .toPath()
+                              .resolve("camera_sweep.csv")
+                              .toString());
+                    } catch (Exception e) {
+                      e.printStackTrace();
+                    }
+                  }));
+    }
+  }
+
+  /**
+   * Use this to pass the MANUAL SHOOT FUEL command to the main {@link Robot} class.
+   *
+   * @return the command to run in autonomous
+   */
+  public Command getManualAuto() {
+    // NOTE:
+    //
+    // For teams not using PathPlanner, this auto may be used to simply shoot the pre-loaded fuel
+    // into the HUB during AUTO.  Since shooters are beyond the scope of Az-RBSI, you will have to
+    // write your own command and call it here.
+
+    // Replace Commands.none() with your command that shoots fuel into the HUB.
+    return Commands.none();
+  }
+
+  /**
+   * Use this to pass the autonomous command to the main {@link Robot} class.
+   *
+   * @return the command to run in autonomous
+   */
+  public Command getAutonomousCommandPathPlanner() {
+    // Use the ``autoChooser`` to define your auto path from the SmartDashboard
+    return autoChooserPathPlanner.get();
+  }
+
+  /** Set the motor neutral mode to BRAKE / COAST for T/F */
+  public void setMotorBrake(boolean brake) {
+    m_drivebase.setMotorBrake(brake);
+  }
+
+  /** Updates the alerts. */
+  public void updateAlerts() {
+    // AprilTag layout alert
+    boolean aprilTagAlertActive = Constants.getAprilTagLayoutType() != AprilTagLayoutType.OFFICIAL;
+    aprilTagLayoutAlert.set(aprilTagAlertActive);
+    if (aprilTagAlertActive) {
+      aprilTagLayoutAlert.setText(
+          "Non-official AprilTag layout in use ("
+              + Constants.getAprilTagLayoutType().toString()
+              + ").");
+    }
+  }
+
+  /** Drivetrain getter method */
+  public Drive getDrivebase() {
+    return m_drivebase;
+  }
+
+  /**
+   * Set up the SysID routines from AdvantageKit
+   *
+   * <p>NOTE: These are currently only accessible with Constants.AutoType.PATHPLANNER
+   */
+  private void definesysIdRoutines() {
+    if (Constants.getAutoType() == AutoType.PATHPLANNER) {
+      // Drivebase characterization
+      autoChooserPathPlanner.addOption(
+          "Drive Wheel Radius Characterization",
+          DriveCommands.wheelRadiusCharacterization(m_drivebase));
+      autoChooserPathPlanner.addOption(
+          "Drive Simple FF Characterization",
+          DriveCommands.feedforwardCharacterization(m_drivebase));
+      autoChooserPathPlanner.addOption(
+          "Drive SysId (Quasistatic Forward)",
+          m_drivebase.sysIdQuasistatic(SysIdRoutine.Direction.kForward));
+      autoChooserPathPlanner.addOption(
+          "Drive SysId (Quasistatic Reverse)",
+          m_drivebase.sysIdQuasistatic(SysIdRoutine.Direction.kReverse));
+      autoChooserPathPlanner.addOption(
+          "Drive SysId (Dynamic Forward)",
+          m_drivebase.sysIdDynamic(SysIdRoutine.Direction.kForward));
+      autoChooserPathPlanner.addOption(
+          "Drive SysId (Dynamic Reverse)",
+          m_drivebase.sysIdDynamic(SysIdRoutine.Direction.kReverse));
+
+      // Example Flywheel SysId Characterization
+      autoChooserPathPlanner.addOption(
+          "Flywheel SysId (Quasistatic Forward)",
+          m_flywheel.sysIdQuasistatic(SysIdRoutine.Direction.kForward));
+      autoChooserPathPlanner.addOption(
+          "Flywheel SysId (Quasistatic Reverse)",
+          m_flywheel.sysIdQuasistatic(SysIdRoutine.Direction.kReverse));
+      autoChooserPathPlanner.addOption(
+          "Flywheel SysId (Dynamic Forward)",
+          m_flywheel.sysIdDynamic(SysIdRoutine.Direction.kForward));
+      autoChooserPathPlanner.addOption(
+          "Flywheel SysId (Dynamic Reverse)",
+          m_flywheel.sysIdDynamic(SysIdRoutine.Direction.kReverse));
+    }
+  }
 }

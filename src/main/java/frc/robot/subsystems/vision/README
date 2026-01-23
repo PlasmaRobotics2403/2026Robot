@@ -1,0 +1,29 @@
+This directory contains an the basic vision template, as distributed with
+AdvantageKit.  The structure of the subsystem directory is:
+
+    * Vision.java
+        The base subsystem definitions and outward-facing (public) hardware-
+        agnostic functions for interacting with the subsystem.  The idea is
+        that any of the hardware-specific (i.e. camera system API calls)
+        functionality is insulated from the rest of the robot code within
+        the library-specific modules in this directory.
+    
+    * VisionIO.java
+        The base subsystem I/O (input/output) interface that contains the
+        structure and class variables needed by the library-specific modules.
+    
+    * VisionIOLimelight.java
+        The vision implementation for the Limelight camera system, which maps
+        Limelight-specific API calls back onto the generic vision API defined
+        above.
+
+    * VisionIOPhotonVision.java
+        The vision implementation for the Photon Vision camera system, which
+        maps PhotonLib-specific API calls back onto the generic vision API
+        defined above.
+
+    * VisionIOPhotonVisionSim.java
+        Simulated vision module, for use with robot simulations, does not
+        control actual hardware.
+
+                    

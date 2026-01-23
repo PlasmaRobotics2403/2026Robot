@@ -1,0 +1,240 @@
+name: "Sync with Az-RBSI Template"
+
+on:
+  # cronjob trigger
+  schedule:
+    # Every Monday at 4:30AM
+    - cron: "30 04 * * 1"
+  # manual trigger
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync-template:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      # -------------------------------
+      # Step 1: Checkout repository
+      # -------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # Full history needed for cherry-picking
+
+      # -------------------------------
+      # Step 2: Read template origin info
+      # -------------------------------
+      - name: Read template origin
+        id: template
+        run: |
+          if [ ! -f TEMPLATE_ORIGIN.txt ]; then
+            echo "TEMPLATE_ORIGIN.txt not found. Skipping sync."
+            echo "skip_sync=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          template_repo=$(sed -n 's/^Template: //p' TEMPLATE_ORIGIN.txt | tr -d '[:space:]')
+          last_applied_commit=$(sed -n 's/^Template Commit: //p' TEMPLATE_ORIGIN.txt | tr -d '[:space:]')
+
+          if [ "$template_repo" = "none" ] || [ "$last_applied_commit" = "none" ]; then
+            echo "Repository is not from a template. Skipping sync."
+            echo "skip_sync=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Get default branch of template repo dynamically
+          template_branch=$(gh repo view "$template_repo" --json defaultBranchRef --jq '.defaultBranchRef.name')
+          echo "skip_sync=false" >> $GITHUB_OUTPUT
+          echo "template_repo=$template_repo" >> $GITHUB_OUTPUT
+          echo "template_branch=$template_branch" >> $GITHUB_OUTPUT
+          echo "last_applied_commit=$last_applied_commit" >> $GITHUB_OUTPUT
+
+      # -------------------------------
+      # Step 3: Install GitHub CLI and jq
+      # -------------------------------
+      - name: Install GitHub CLI
+        if: steps.template.outputs.skip_sync == 'false'
+        run: sudo apt-get update && sudo apt-get install -y gh jq
+
+      # -------------------------------
+      # Step 4: Add template repo as remote and fetch commits
+      # -------------------------------
+      - name: Add template repo as remote and fetch
+        if: steps.template.outputs.skip_sync == 'false'
+        run: |
+          git remote add template_repo https://github.com/${{ steps.template.outputs.template_repo }}.git
+          git fetch template_repo ${{ steps.template.outputs.template_branch }}
+
+      # -------------------------------
+      # Step 5: Get new commits from template (only non-merge)
+      # -------------------------------
+      - name: Get new commits from template
+        if: steps.template.outputs.skip_sync == 'false'
+        id: commits
+        run: |
+          last_commit=${{ steps.template.outputs.last_applied_commit }}
+          branch=${{ steps.template.outputs.template_branch }}
+
+          # List commits after last applied commit, oldest first
+          all_commits=$(git rev-list --reverse ${last_commit}..template_repo/${branch} || true)
+          all_commits=$(echo "$all_commits" | grep -v "^$last_commit$" || true)
+
+          # Filter out merge commits (those with >1 parent)
+          non_merge_commits=""
+          for sha in $all_commits; do
+            parent_count=$(git rev-list --parents -n 1 "$sha" | wc -w)
+            if [ "$parent_count" -le 2 ]; then
+              non_merge_commits+="$sha"$'\n'
+            fi
+          done
+
+          non_merge_commits=$(echo "$non_merge_commits" | grep -v '^$' || true)
+          commit_count=$(echo "$non_merge_commits" | grep -c . || true)
+
+          echo "commit_count=$commit_count" >> $GITHUB_OUTPUT
+
+          if [ -z "$non_merge_commits" ]; then
+            echo "No new template commits to cherry-pick."
+          else
+            echo "Non-merge commits to cherry-pick:"
+            echo "$non_merge_commits"
+          fi
+
+          echo "new_commits<<EOF" >> $GITHUB_OUTPUT
+          echo "$non_merge_commits" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      # -------------------------------
+      # Step 6: Cherry-pick commits, squash, and create/update PR
+      # -------------------------------
+      - name: Cherry-pick commits, squash, and create/update PR
+        if: steps.template.outputs.skip_sync == 'false' && steps.commits.outputs.new_commits != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          branch_name="template-sync"
+          target_branch=$(gh repo view $GITHUB_REPOSITORY --json defaultBranchRef --jq '.defaultBranchRef.name')
+          sync_date=$(date -u +"%Y-%m-%d")
+          timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          # Ensure branch exists or create new
+          if git ls-remote --exit-code --heads origin "$branch_name"; then
+            git fetch origin "$branch_name"
+            git checkout "$branch_name"
+            git pull origin "$branch_name"
+          else
+            git checkout -b "$branch_name" origin/"$target_branch" || git checkout -b "$branch_name"
+          fi
+
+          # Reset to target branch to avoid conflicts
+          git fetch origin "$target_branch"
+          git reset --hard origin/"$target_branch"
+
+          # Initialize summaries
+          commit_summary=""
+          skipped_commits=""
+          newest_commit=""
+          applied_count=0
+
+          commit_list=$(echo "${{ steps.commits.outputs.new_commits }}" | tr -d '\r')
+
+          # Cherry-pick each commit, skipping workflow changes
+          while IFS= read -r commit_sha; do
+            [ -z "$commit_sha" ] && continue
+
+            short_sha=$(git rev-parse --short=7 "$commit_sha")
+            commit_msg=$(git log -1 --pretty=%B "$commit_sha")
+            first_line=${commit_msg%%$'\n'*}
+
+            # Skip commits that modify workflows
+            if git diff-tree --no-commit-id --name-only -r "$commit_sha" | grep -q '^.github/workflows/'; then
+              echo "Skipping workflow-modifying commit $short_sha"
+              skipped_commits+="- $short_sha: $first_line"$'\n'
+              continue
+            fi
+
+            # Apply commit
+            commit_summary+="- $short_sha: $first_line"$'\n'
+            git cherry-pick --no-commit "$commit_sha"
+            newest_commit="$commit_sha"
+            applied_count=$((applied_count + 1))
+
+          done <<< "$commit_list"
+
+          # If nothing was applied, exit cleanly
+          if [ "$applied_count" -eq 0 ]; then
+            echo "No applicable commits after filtering. Exiting."
+            exit 0
+          fi
+
+          # Squash all applied commits into one
+          git commit -m "Template Sync Updates"$'\n\n'"$commit_summary"
+
+          # Update TEMPLATE_ORIGIN.txt
+          {
+            echo "Template: ${{ steps.template.outputs.template_repo }}"
+            echo "Template Branch: ${{ steps.template.outputs.template_branch }}"
+            echo "Template Commit: $newest_commit"
+            echo "Recorded At (UTC): $timestamp"
+          } > TEMPLATE_ORIGIN.txt
+
+          git add TEMPLATE_ORIGIN.txt
+          git commit --amend --no-edit
+
+          # Push changes
+          git push origin "$branch_name" -f
+
+          # Ensure template-sync label exists
+          if ! gh label list | grep -q "^template-sync"; then
+            gh label create template-sync --color BC8F8F --description "Updates synced from template repository"
+          fi
+
+          # Build PR title
+          plural="s"
+          [ "$applied_count" -eq 1 ] && plural=""
+          pr_title="Sync Template Updates ($applied_count commit$plural, $sync_date)"
+
+          # Build PR body
+          pr_body=$(printf "### Template Sync Commit Summary:\n\n%s\n" "$commit_summary")
+
+          if [ -n "$skipped_commits" ]; then
+            pr_body+=$(printf "\n\n### ⚠️ Skipped workflow-related commits (require manual review):\n\n%s\n" "$skipped_commits")
+          fi
+
+          pr_body+=$(printf "\n\n\n_Synced from:_ https://github.com/%s/tree/%s at commit \`%s\`\n\n_Last recorded at (UTC): %s_" \
+            "${{ steps.template.outputs.template_repo }}" \
+            "${{ steps.template.outputs.template_branch }}" \
+            "$newest_commit" \
+            "$timestamp")
+
+          existing_pr=$(gh pr list --head "$branch_name" --state open --json number --jq '.[0].number')
+
+          if [ -n "$existing_pr" ]; then
+            echo "Updating existing PR #$existing_pr"
+            printf "%s" "$pr_body" | gh pr edit "$existing_pr" --title "$pr_title" --body-file - --add-label "template-sync"
+          else
+            echo "Creating a new PR"
+            printf "%s" "$pr_body" | gh pr create \
+              --title "$pr_title" \
+              --body-file - \
+              --base "$target_branch" \
+              --head "$branch_name" \
+              --label "template-sync"
+          fi
+
+      # -------------------------------
+      # Step 7: No new commits
+      # -------------------------------
+      - name: No new commits
+        if: steps.template.outputs.skip_sync == 'false' && steps.commits.outputs.new_commits == ''
+        run: echo "No new template commits to sync. Exiting."
