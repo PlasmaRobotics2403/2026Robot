@@ -78,7 +78,9 @@ public final class Constants {
   //       under strict caveat emptor -- and submit any error and bugfixes
   //       via GitHub issues.
   private static SwerveType swerveType = SwerveType.PHOENIX6; // PHOENIX6
-  private static CTREPro phoenixPro = CTREPro.LICENSED; // LICENSED, UNLICENSED
+  // Force Phoenix Pro behavior on in code paths that branch on licensing.
+  // Note: actual Pro features still require a valid CTRE license on the robot.
+  private static final CTREPro phoenixPro = CTREPro.LICENSED; // LICENSED, UNLICENSED
   private static AutoType autoType = AutoType.PATHPLANNER; // MANUAL, PATHPLANNER
   private static VisionType visionType = VisionType.PHOTON; // PHOTON, NONE
 
@@ -528,7 +530,7 @@ public final class Constants {
 
   /** Get the current CTRE/Phoenix Pro License state */
   public static CTREPro getPhoenixPro() {
-    return phoenixPro;
+    return CTREPro.LICENSED;
   }
 
   /** Get the current AprilTag layout type. */
