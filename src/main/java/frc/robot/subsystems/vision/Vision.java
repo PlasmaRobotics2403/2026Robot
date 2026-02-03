@@ -11,8 +11,13 @@
 
 package frc.robot.subsystems.vision;
 
-import static frc.robot.Constants.Cameras.*;
-import static frc.robot.Constants.VisionConstants.*;
+import static frc.robot.Constants.Cameras.cameraStdDevFactors;
+import static frc.robot.Constants.VisionConstants.angularStdDevBaseline;
+import static frc.robot.Constants.VisionConstants.angularStdDevMegatag2Factor;
+import static frc.robot.Constants.VisionConstants.linearStdDevBaseline;
+import static frc.robot.Constants.VisionConstants.linearStdDevMegatag2Factor;
+import static frc.robot.Constants.VisionConstants.maxAmbiguity;
+import static frc.robot.Constants.VisionConstants.maxZError;
 
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.VecBuilder;
@@ -23,6 +28,9 @@ import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants.Cameras;
 import frc.robot.FieldConstants;
@@ -30,12 +38,24 @@ import frc.robot.subsystems.vision.VisionIO.PoseObservationType;
 import java.util.LinkedList;
 import java.util.List;
 import org.littletonrobotics.junction.Logger;
+import org.littletonrobotics.junction.networktables.LoggedNetworkNumber;
 
 public class Vision extends SubsystemBase {
   private final VisionConsumer consumer;
   private final VisionIO[] io;
   private final VisionIOInputsAutoLogged[] inputs;
   private final Alert[] disconnectedAlerts;
+
+  // Throttle DS warnings so we don't spam every loop.
+  private double lastPeriodicDsPrintSec = 0.0;
+
+  // Dashboard outputs (AdvantageKit NT wrappers) so values reliably show up in this project.
+  private final LoggedNetworkNumber camera0PrimaryTagId =
+      new LoggedNetworkNumber("SmartDashboard/Vision/Camera0/PrimaryTagId", -1.0);
+  private final LoggedNetworkNumber camera0Connected =
+      new LoggedNetworkNumber("SmartDashboard/Vision/Camera0/Connected", 0.0);
+  private final LoggedNetworkNumber camera0TagCount =
+      new LoggedNetworkNumber("SmartDashboard/Vision/Camera0/TagCount", 0.0);
 
   public Vision(VisionConsumer consumer, VisionIO... io) {
     this.consumer = consumer;
@@ -69,11 +89,81 @@ public class Vision extends SubsystemBase {
     return inputs[cameraIndex].latestTargetObservation.tx();
   }
 
+  /** Returns true if the camera currently reports seeing the given AprilTag ID. */
+  public boolean seesTag(int cameraIndex, int tagId) {
+    for (int id : inputs[cameraIndex].tagIds) {
+      if (id == tagId) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Returns a single "primary" detected AprilTag ID for the camera.
+   *
+   * <p>This is meant for quick debugging on dashboards. If multiple tags are visible, this returns
+   * the first ID in the current inputs list (ordering is implementation-dependent). If no tags are
+   * visible, returns -1.
+   */
+  public int getPrimaryTagId(int cameraIndex) {
+    if (inputs[cameraIndex].tagIds.length == 0) {
+      return -1;
+    }
+    return inputs[cameraIndex].tagIds[0];
+  }
+
+  /**
+   * Returns the camera-to-tag yaw (tx) for a specific AprilTag ID.
+   *
+   * <p>If the tag is not present, returns {@link Rotation2d#kZero}.
+   */
+  public Rotation2d getTargetXForTag(int cameraIndex, int tagId) {
+    for (int i = 0; i < inputs[cameraIndex].tagIds.length; i++) {
+      if (inputs[cameraIndex].tagIds[i] == tagId) {
+        if (i < inputs[cameraIndex].tagYaw.length) {
+          return inputs[cameraIndex].tagYaw[i];
+        }
+        return Rotation2d.kZero;
+      }
+    }
+    return Rotation2d.kZero;
+  }
+
   @Override
   public void periodic() {
+    // Heartbeat so we can tell at a glance that Vision.periodic() is executing.
+    double nowSec = Timer.getFPGATimestamp();
+    if (nowSec - lastPeriodicDsPrintSec > 1.0) {
+      lastPeriodicDsPrintSec = nowSec;
+      DriverStation.reportWarning("Vision.periodic() running", false);
+    }
+    SmartDashboard.putBoolean("Vision/Heartbeat", true);
+    SmartDashboard.putNumber("Vision/CameraCount", io.length);
+
     for (int i = 0; i < io.length; i++) {
       io[i].updateInputs(inputs[i]);
       Logger.processInputs("Vision/Camera" + Integer.toString(i), inputs[i]);
+
+      // Quick debug number: show one detected tag ID (or -1 if none)
+      Logger.recordOutput(
+          "Vision/Camera" + Integer.toString(i) + "/PrimaryTagId", getPrimaryTagId(i));
+      SmartDashboard.putNumber(
+          "Vision/Camera" + Integer.toString(i) + "/PrimaryTagId", getPrimaryTagId(i));
+
+      // Helpful extra debug fields
+      SmartDashboard.putBoolean(
+          "Vision/Camera" + Integer.toString(i) + "/Connected", inputs[i].connected);
+      SmartDashboard.putNumber(
+          "Vision/Camera" + Integer.toString(i) + "/TagCount", inputs[i].tagIds.length);
+
+      // Also publish with LoggedNetworkNumber (camera 0 for now) so the value appears even if the
+      // native SmartDashboard UI isn't auto-populating new keys.
+      if (i == 0) {
+        camera0PrimaryTagId.set(getPrimaryTagId(0));
+        camera0Connected.set(inputs[0].connected ? 1.0 : 0.0);
+        camera0TagCount.set(inputs[0].tagIds.length);
+      }
     }
 
     // Initialize logging values

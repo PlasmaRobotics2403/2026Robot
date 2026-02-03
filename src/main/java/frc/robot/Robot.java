@@ -24,6 +24,7 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Threads;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import frc.robot.util.VirtualSubsystem;
@@ -48,6 +49,9 @@ public class Robot extends LoggedRobot {
   private Command m_autoCommandPathPlanner;
   private RobotContainer m_robotContainer;
   private Timer m_disabledTimer;
+
+  /** Throttle DS prints so we don't spam the driver station. */
+  private double lastHeartbeatPrintSec = 0.0;
 
   // Define simulation fields here
   private VisionSystemSim visionSim;
@@ -129,6 +133,15 @@ public class Robot extends LoggedRobot {
   /** This function is called periodically during all modes. */
   @Override
   public void robotPeriodic() {
+    // Robot-wide heartbeat so we can prove the main loop is running and DS/NT are connected.
+    // Unmanaged.feedEnable(100);
+    SmartDashboard.putBoolean("Robot/Heartbeat", true);
+    double nowSec = Timer.getFPGATimestamp();
+    if (nowSec - lastHeartbeatPrintSec > 1.0) {
+      lastHeartbeatPrintSec = nowSec;
+      DriverStation.reportWarning("Robot.robotPeriodic() running", false);
+    }
+
     // Switch thread to high priority to improve loop timing
     if (isReal()) {
       Threads.setCurrentThreadPriority(true, 99);
@@ -227,6 +240,7 @@ public class Robot extends LoggedRobot {
     //   active in Shifts 2 and 4.
     //
     // https://docs.wpilib.org/en/stable/docs/yearly-overview/2026-game-data.html
+    // feed the enable signal, timeout after 100ms
     if (FieldState.wonAuto == null) {
       // Only call this code block if the signal from FMS has not yet arrived
       String gameData = DriverStation.getGameSpecificMessage();

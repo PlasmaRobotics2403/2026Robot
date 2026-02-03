@@ -29,6 +29,7 @@ import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.GenericHID;
 import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandJoystick;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
@@ -38,6 +39,12 @@ import frc.robot.Constants.SimCameras;
 import frc.robot.FieldConstants.AprilTagLayoutType;
 import frc.robot.commands.AutopilotCommands;
 import frc.robot.commands.DriveCommands;
+import frc.robot.commands.IntakeCommand;
+import frc.robot.commands.TestMotorCommand;
+import frc.robot.commands.TestTurretFollowCommand;
+import frc.robot.subsystems.IntakeSubsystem;
+import frc.robot.subsystems.TestMotorSubsystem;
+import frc.robot.subsystems.TestTurretSubsystem;
 import frc.robot.subsystems.accelerometer.Accelerometer;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.SwerveConstants;
@@ -87,6 +94,15 @@ public class RobotContainer {
   private final ImuIO m_imu;
   private final Flywheel m_flywheel;
 
+  // Test mechanism subsystems
+  private final TestTurretSubsystem m_testTurret = new TestTurretSubsystem();
+
+  // Simple test motor subsystem
+  private final TestMotorSubsystem m_testMotor = new TestMotorSubsystem(24);
+
+  // Intake subsystem
+  private final IntakeSubsystem m_intake = new IntakeSubsystem();
+
   // ... Add additional subsystems here (e.g., elevator, arm, etc.)
 
   // These are "Virtual Subsystems" that report information but have no motors
@@ -106,7 +122,9 @@ public class RobotContainer {
   // Input estimated battery capacity (if full, use printed value)
   private final LoggedTunableNumber batteryCapacity =
       new LoggedTunableNumber("Battery Amp-Hours", 18.0);
+
   // EXAMPLE TUNABLE FLYWHEEL SPEED INPUT FROM DASHBOARD
+  @SuppressWarnings("unused")
   private final LoggedTunableNumber flywheelSpeedInput =
       new LoggedTunableNumber("Flywheel Speed", 1500.0);
 
@@ -203,6 +221,11 @@ public class RobotContainer {
     // include ``m_drivebase``, as that is automatically monitored.
     m_power = new RBSIPowerMonitor(batteryCapacity, m_flywheel);
 
+    // Ensure Vision.periodic() runs every loop (even if no command requires Vision yet)
+    if (m_vision != null) {
+      CommandScheduler.getInstance().registerSubsystem(m_vision);
+    }
+
     // Set up the SmartDashboard Auto Chooser based on auto type
     switch (Constants.getAutoType()) {
       case MANUAL:
@@ -270,23 +293,8 @@ public class RobotContainer {
             () -> -turnStickX.value()));
 
     // ** Example Commands -- Remap, remove, or change as desired **
-    // Press B button while driving --> ROBOT-CENTRIC
-    driverController
-        .b()
-        .onTrue(
-            Commands.runOnce(
-                () ->
-                    DriveCommands.robotRelativeDrive(
-                        m_drivebase,
-                        () -> -driveStickY.value(),
-                        () -> -driveStickX.value(),
-                        () -> turnStickX.value()),
-                m_drivebase));
-
-    // Press A button -> BRAKE
-    driverController
-        .a()
-        .whileTrue(Commands.runOnce(() -> m_drivebase.setMotorBrake(true), m_drivebase));
+    // Hold B button to run the test motor (duty cycle)
+    driverController.b().whileTrue(new TestMotorCommand(m_testMotor, 0.75));
 
     // Press X button --> Stop with wheels in X-Lock position
     driverController.x().onTrue(Commands.runOnce(m_drivebase::stopWithX, m_drivebase));
@@ -298,14 +306,8 @@ public class RobotContainer {
             Commands.runOnce(m_drivebase::zeroHeadingForAlliance, m_drivebase)
                 .ignoringDisable(true));
 
-    // Press RIGHT BUMPER --> Run the example flywheel
-    driverController
-        .rightBumper()
-        .whileTrue(
-            Commands.startEnd(
-                () -> m_flywheel.runVelocity(flywheelSpeedInput.get()),
-                m_flywheel::stop,
-                m_flywheel));
+    // Press RIGHT BUMPER --> Deploy intake + run rollers; release -> stow + stop
+    driverController.rightBumper().whileTrue(new IntakeCommand(m_intake));
 
     // Press LEFT BUMPER --> Drive to a pose 10 feet closer to the BLUE ALLIANCE wall
     driverController
@@ -343,6 +345,10 @@ public class RobotContainer {
                 m_drivebase::stop,
                 m_drivebase));
 
+    // Hold A to aim turret at AprilTag 1 (tx -> 0).
+    // If no target is visible, the turret holds its current position.
+    driverController.a().whileTrue(new TestTurretFollowCommand(m_testTurret, m_vision));
+
     if (Constants.getMode() == Mode.SIM) {
       // IN SIMULATION ONLY:
       // Double-press the A button on Joystick3 to run the CameraSweepEvaluator
@@ -366,11 +372,6 @@ public class RobotContainer {
     }
   }
 
-  /**
-   * Use this to pass the MANUAL SHOOT FUEL command to the main {@link Robot} class.
-   *
-   * @return the command to run in autonomous
-   */
   public Command getManualAuto() {
     // NOTE:
     //

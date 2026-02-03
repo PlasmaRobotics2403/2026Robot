@@ -19,7 +19,8 @@
 
 package frc.robot;
 
-import static edu.wpi.first.units.Units.*;
+import static edu.wpi.first.units.Units.Inches;
+import static edu.wpi.first.units.Units.Meters;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -41,10 +42,10 @@ public class FieldConstants {
 
   public static final String aprilTagFamily = "36h11";
 
-  public static final double fieldLength = AprilTagLayoutType.OFFICIAL.getLayout().getFieldLength();
-  public static final double fieldWidth = AprilTagLayoutType.OFFICIAL.getLayout().getFieldWidth();
+  public static final double fieldLength = AprilTagLayoutType.OFFICIAL.layout.getFieldLength();
+  public static final double fieldWidth = AprilTagLayoutType.OFFICIAL.layout.getFieldWidth();
 
-  public static final int aprilTagCount = AprilTagLayoutType.OFFICIAL.getLayout().getTags().size();
+  public static final int aprilTagCount = AprilTagLayoutType.OFFICIAL.layout.getTags().size();
   public static final AprilTagLayoutType defaultAprilTagType = AprilTagLayoutType.OFFICIAL;
 
   public static final AprilTagFieldLayout aprilTagLayout =

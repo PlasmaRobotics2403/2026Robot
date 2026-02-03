@@ -174,6 +174,15 @@ public final class Constants {
   /** List of Robot Device CAN and Power Distribution Circuit IDs ********** */
   public static class RobotDevices {
 
+    /** Intake constants (device IDs, bus names, power ports). */
+    public static final class IntakeConstants {
+      private IntakeConstants() {}
+
+      // NOTE: Update power ports to match your PDH/PDP wiring.
+      public static final RobotDeviceId INTAKE_PIVOT = new RobotDeviceId(21, "rio", 10);
+      public static final RobotDeviceId INTAKE_ROLLER = new RobotDeviceId(22, "rio", 11);
+    }
+
     /* DRIVETRAIN CAN DEVICE IDS */
     // Input the correct Power Distribution Module port for each motor!!!!
     // NOTE: The CAN ID and bus are set in the Swerve Generator (Phoenix Tuner or YAGSL)
@@ -430,8 +439,8 @@ public final class Constants {
   /** Vision Camera Posses ************************************************* */
   public static class Cameras {
     // Camera names, must match names configured on coprocessor
-    public static String camera0Name = "camera_0";
-    public static String camera1Name = "camera_1";
+    public static String camera0Name = "PlasmaCam1";
+    public static String camera1Name = "PlasmaCam2";
     // ... And more, if needed
 
     // Robot to camera transforms

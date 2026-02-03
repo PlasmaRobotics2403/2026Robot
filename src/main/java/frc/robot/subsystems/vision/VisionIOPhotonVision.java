@@ -9,7 +9,7 @@
 
 package frc.robot.subsystems.vision;
 
-import static frc.robot.FieldConstants.*;
+import static frc.robot.FieldConstants.aprilTagLayout;
 
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -17,7 +17,9 @@ import edu.wpi.first.math.geometry.Transform3d;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import org.photonvision.PhotonCamera;
 
 /** IO implementation for real PhotonVision hardware. */
@@ -42,6 +44,9 @@ public class VisionIOPhotonVision implements VisionIO {
 
     // Read new camera observations
     Set<Short> tagIds = new HashSet<>();
+    // Collect per-tag yaw for the newest processed results.
+    // Use a sorted map for deterministic ordering.
+    Map<Integer, Rotation2d> tagYawMap = new TreeMap<>();
     List<PoseObservation> poseObservations = new LinkedList<>();
     for (var result : camera.getAllUnreadResults()) {
       // Update latest target observation
@@ -72,6 +77,11 @@ public class VisionIOPhotonVision implements VisionIO {
         // Add tag IDs
         tagIds.addAll(multitagResult.fiducialIDsUsed);
 
+        // Store yaw for each target in this result
+        for (var target : result.targets) {
+          tagYawMap.put(target.fiducialId, Rotation2d.fromDegrees(target.getYaw()));
+        }
+
         // Add observation
         poseObservations.add(
             new PoseObservation(
@@ -97,6 +107,7 @@ public class VisionIOPhotonVision implements VisionIO {
 
           // Add tag ID
           tagIds.add((short) target.fiducialId);
+          tagYawMap.put(target.fiducialId, Rotation2d.fromDegrees(target.getYaw()));
 
           // Add observation
           poseObservations.add(
@@ -119,9 +130,26 @@ public class VisionIOPhotonVision implements VisionIO {
 
     // Save tag IDs to inputs objects
     inputs.tagIds = new int[tagIds.size()];
+    inputs.tagYaw = new Rotation2d[tagIds.size()];
+
     int i = 0;
-    for (int id : tagIds) {
-      inputs.tagIds[i++] = id;
+    for (var entry : tagYawMap.entrySet()) {
+      inputs.tagIds[i] = entry.getKey();
+      inputs.tagYaw[i] = entry.getValue();
+      i++;
+    }
+
+    // If we didn't record yaw for some tags (should be rare), fall back to zeros for those.
+    // Also keep tagIds array consistent with the set of IDs.
+    if (i == 0 && !tagIds.isEmpty()) {
+      inputs.tagIds = new int[tagIds.size()];
+      inputs.tagYaw = new Rotation2d[tagIds.size()];
+      int j = 0;
+      for (int id : tagIds) {
+        inputs.tagIds[j] = id;
+        inputs.tagYaw[j] = Rotation2d.kZero;
+        j++;
+      }
     }
   }
 }

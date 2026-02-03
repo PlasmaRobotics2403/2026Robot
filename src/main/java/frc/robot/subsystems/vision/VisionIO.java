@@ -21,6 +21,13 @@ public interface VisionIO {
         new TargetObservation(Rotation2d.kZero, Rotation2d.kZero);
     public PoseObservation[] poseObservations = new PoseObservation[0];
     public int[] tagIds = new int[0];
+
+    /**
+     * Per-tag yaw (tx) measurements for the current frame.
+     *
+     * <p>Indices in this array correspond to {@link #tagIds}.
+     */
+    public Rotation2d[] tagYaw = new Rotation2d[0];
   }
 
   /** Represents the angle to a simple target, not used for pose estimation. */
