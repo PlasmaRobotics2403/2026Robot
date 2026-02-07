@@ -6,7 +6,7 @@ import frc.robot.subsystems.IntakeSubsystem;
 public class IntakeCommand extends Command {
   private static final double DEFAULT_DEPLOY_DEG = 95;
   private static final double DEFAULT_STOW_DEG = 0.0;
-  private static final double DEFAULT_ROLLER_PERCENT = 1;
+  private static final double DEFAULT_ROLLER_PERCENT = 0.5;
 
   private final IntakeSubsystem intake;
   private final double deployDeg;

@@ -19,6 +19,7 @@ import static frc.robot.Constants.Cameras.robotToCamera0;
 import static frc.robot.Constants.Cameras.robotToCamera1;
 
 import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.path.PathPlannerPath;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Transform2d;
@@ -311,7 +312,7 @@ public class RobotContainer {
 
     // Press LEFT BUMPER --> Drive to a pose 10 feet closer to the BLUE ALLIANCE wall
     driverController
-        .leftBumper()
+        .leftTrigger()
         .whileTrue(
             Commands.defer(
                 () -> {
@@ -423,6 +424,21 @@ public class RobotContainer {
    */
   private void definesysIdRoutines() {
     if (Constants.getAutoType() == AutoType.PATHPLANNER) {
+      // Simple test auto: follow a single PathPlanner path named "Example Path"
+      autoChooserPathPlanner.addOption(
+          "Test: Example Path",
+          Commands.defer(
+              () -> {
+                try {
+                  return AutoBuilder.followPath(PathPlannerPath.fromPathFile("Example Path"));
+                } catch (Exception e) {
+                  // If the path isn't present yet, keep the robot safe and do nothing.
+                  // (Also avoids RobotContainer failing to construct.)
+                  return Commands.none();
+                }
+              },
+              Set.of(m_drivebase)));
+
       // Drivebase characterization
       autoChooserPathPlanner.addOption(
           "Drive Wheel Radius Characterization",
