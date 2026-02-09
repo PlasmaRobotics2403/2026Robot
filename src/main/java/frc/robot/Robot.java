@@ -28,6 +28,9 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import frc.robot.util.VirtualSubsystem;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import org.littletonrobotics.junction.LogFileUtil;
 import org.littletonrobotics.junction.LoggedRobot;
 import org.littletonrobotics.junction.Logger;
@@ -55,6 +58,9 @@ public class Robot extends LoggedRobot {
 
   // Define simulation fields here
   private VisionSystemSim visionSim;
+
+  // Track scheduled commands for SmartDashboard display
+  private final Set<String> scheduledCommandNames = ConcurrentHashMap.newKeySet();
 
   /**
    * This function is run when the robot is first started up and should be used for any
@@ -121,6 +127,14 @@ public class Robot extends LoggedRobot {
     // Start AdvantageKit logger
     Logger.start();
 
+    // Track command scheduler state for dashboards
+    CommandScheduler.getInstance()
+        .onCommandInitialize(cmd -> scheduledCommandNames.add(cmd.getName()));
+    CommandScheduler.getInstance()
+        .onCommandFinish(cmd -> scheduledCommandNames.remove(cmd.getName()));
+    CommandScheduler.getInstance()
+        .onCommandInterrupt(cmd -> scheduledCommandNames.remove(cmd.getName()));
+
     // Instantiate our RobotContainer. This will perform all our button bindings, and put our
     // autonomous chooser on the dashboard.
     m_robotContainer = new RobotContainer();
@@ -156,6 +170,12 @@ public class Robot extends LoggedRobot {
     // This must be called from the robot's periodic block in order for anything in
     // the Command-based framework to work.
     CommandScheduler.getInstance().run();
+
+    // Publish command scheduler state to SmartDashboard (useful for debugging what is running).
+    SmartDashboard.putNumber("Commands/ScheduledCount", scheduledCommandNames.size());
+    SmartDashboard.putString(
+        "Commands/Scheduled",
+        scheduledCommandNames.stream().sorted().collect(Collectors.joining(", ")));
 
     // Return to normal thread priority
     Threads.setCurrentThreadPriority(false, 10);

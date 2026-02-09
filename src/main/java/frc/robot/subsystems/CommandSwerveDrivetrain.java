@@ -41,6 +41,36 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
   private Notifier m_simNotifier = null;
   private double m_lastSimTime;
 
+  /**
+   * Simulation-only tuning to make the robot feel less "frictionless" in rotation.
+   *
+   * <p>CTRE's {@code updateSimState()} simulates the drivetrain given a timestep. We can't
+   * (cleanly) inject extra friction torque inside CTRE internals, but we <em>can</em> approximate
+   * rotational friction by slightly reducing the effective timestep when the robot is spinning.
+   *
+   * <p>Bigger values = more damping (slower spin-up and spin-down).
+   */
+  private static final double kSimAngularDamping = 0; // 0 = none, ~0.5-1.5 is typical
+
+  /** Ignore tiny omega so we don't damp controller noise and cause jitter. */
+  private static final double kSimOmegaDeadbandRadPerSec = 0.15;
+
+  /**
+   * Sim-only "stick release" braking.
+   *
+   * <p>When the driver isn't commanding rotation, we aggressively bleed off angular velocity so the
+   * robot stops turning quickly (closer to how a real swerve feels due to scrub + friction).
+   *
+   * <p>Units: 1/second. Bigger = stops faster.
+   */
+  private static final double kSimOmegaBrakeRate = 12.0;
+
+  /** If commanded omega magnitude is below this, we consider it "stick released". */
+  private static final double kSimOmegaCommandDeadbandRadPerSec = 0.25;
+
+  /** Cached last commanded omega (robot-relative) for sim braking. */
+  private volatile double m_lastCommandedOmegaRadPerSec = 0.0;
+
   /* Blue alliance sees forward as 0 degrees (toward red alliance wall) */
   private static final Rotation2d kBlueAlliancePerspectiveRotation = Rotation2d.kZero;
   /* Red alliance sees forward as 180 degrees (toward blue alliance wall) */
@@ -222,7 +252,18 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
    * @return Command to run
    */
   public Command applyRequest(Supplier<SwerveRequest> request) {
-    return run(() -> this.setControl(request.get()));
+    return run(
+        () -> {
+          final var req = request.get();
+          // Track the driver's rotation command so sim can "brake" when the stick is released.
+          // (This is SIM-only behavior; it doesn't affect real robot control.)
+          if (Utils.isSimulation()) {
+            if (req instanceof SwerveRequest.ApplyRobotSpeeds apply) {
+              m_lastCommandedOmegaRadPerSec = apply.Speeds.omegaRadiansPerSecond;
+            }
+          }
+          this.setControl(req);
+        });
   }
 
   /**
@@ -279,6 +320,33 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
               final double currentTime = Utils.getCurrentTimeSeconds();
               double deltaTime = currentTime - m_lastSimTime;
               m_lastSimTime = currentTime;
+
+              // --- Simulation friction approximation (rotation) ---
+              // If rotation feels "too easy" in sim, add damping based on current angular velocity.
+              // This reduces the effective timestep passed into CTRE's sim, which reduces the
+              // integrated motion and helps mimic losses.
+              final double omegaRadPerSec = getState().Speeds.omegaRadiansPerSecond;
+              final double omegaMag = Math.abs(omegaRadPerSec);
+              if (omegaMag > kSimOmegaDeadbandRadPerSec) {
+                final double dampingScale =
+                    1.0 / (1.0 + (omegaMag - kSimOmegaDeadbandRadPerSec) * kSimAngularDamping);
+                deltaTime *= dampingScale;
+              }
+
+              // If the driver isn't commanding rotation, apply a strong decay to omega.
+              // This is intentionally "more braked" than reality to match expected sim feel.
+              if (Math.abs(m_lastCommandedOmegaRadPerSec) < kSimOmegaCommandDeadbandRadPerSec) {
+                final double brakeScale = Math.exp(-kSimOmegaBrakeRate * deltaTime);
+                final double brakedOmega = omegaRadPerSec * brakeScale;
+                // We can't directly set omega inside CTRE's sim, but we can reduce the integrated
+                // timestep proportionally to how much omega we want to bleed off this tick.
+                // This makes subsequent updateSimState integrate less heading change.
+                final double omegaRatio =
+                    (Math.abs(omegaRadPerSec) < 1e-6)
+                        ? 1.0
+                        : Math.abs(brakedOmega / omegaRadPerSec);
+                deltaTime *= omegaRatio;
+              }
 
               /* use the measured time delta, get battery voltage from WPILib */
               updateSimState(deltaTime, RobotController.getBatteryVoltage());

@@ -25,8 +25,7 @@
         "LD_LIBRARY_PATH": "${workspaceFolder}/build/jni/release",
         "DYLD_LIBRARY_PATH": "${workspaceFolder}/build/jni/release"
       }
-    },
-    null
+    }
   ],
   "java.test.defaultConfig": "WPIlibUnitTests",
   "editor.indentSize": 2,
@@ -65,14 +64,9 @@
     "edu.wpi.first.math.proto.*",
     "edu.wpi.first.math.**.proto.*",
     "edu.wpi.first.math.**.struct.*",
-    null
+    "edu.wpi.first.math.**.struct.*"
   ],
-  "editor.defaultFormatter": "richardwillis.vscode-spotless-gradle",
-  "[json]": {
-    "editor.defaultFormatter": "richardwillis.vscode-spotless-gradle"
-  },
-  "[java]": {
-    "editor.defaultFormatter": "richardwillis.vscode-spotless-gradle"
-  },
+  "java.jdt.ls.java.home": "C:\\Users\\Public\\wpilib\\2026\\jdk",
+  "java.import.gradle.java.home": "C:\\Users\\Public\\wpilib\\2026\\jdk",
   "java.dependency.enableDependencyCheckup": false
 }

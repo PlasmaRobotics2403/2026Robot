@@ -37,8 +37,8 @@ public class TestTurretSubsystem extends RBSISubsystem {
   private static final double POSITION_TOLERANCE_RAD = Units.degreesToRadians(1.0);
 
   // Soft limits (post-gearbox output angle). Prevents wrapping past the allowed range.
-  private static final double MIN_ANGLE_RAD = Units.degreesToRadians(-180.0);
-  private static final double MAX_ANGLE_RAD = Units.degreesToRadians(180.0);
+  public final double MIN_ANGLE_RAD = Units.degreesToRadians(-180);
+  public final double MAX_ANGLE_RAD = Units.degreesToRadians(180);
 
   private final PIDController angleController = new PIDController(kP, kI, kD);
   private double lastDashboardP = kP;
@@ -105,6 +105,7 @@ public class TestTurretSubsystem extends RBSISubsystem {
     SmartDashboard.putNumber(DASHBOARD_PID_PREFIX + "Active kP", lastDashboardP);
     SmartDashboard.putNumber(DASHBOARD_PID_PREFIX + "Active kI", lastDashboardI);
     SmartDashboard.putNumber(DASHBOARD_PID_PREFIX + "Active kD", lastDashboardD);
+    SmartDashboard.putBoolean("Turret/AtLimit", isAtLimit());
     Logger.recordOutput("Turret/PositionRot", getPositionRotations());
     Logger.recordOutput("Turret/VelocityRotPerSec", getVelocityRotationsPerSecond());
     Logger.recordOutput("Turret/AppliedVolts", appliedVolts.getValueAsDouble());
@@ -202,5 +203,11 @@ public class TestTurretSubsystem extends RBSISubsystem {
   /** Returns turret output rad/s (post-gearbox). */
   public double getVelocityRadiansPerSecond() {
     return Units.rotationsToRadians(getVelocityRotationsPerSecond());
+  }
+
+  public boolean isAtLimit() {
+    double posRad = getPositionRadians();
+    return posRad <= MIN_ANGLE_RAD + Math.toRadians(6.0)
+        || posRad >= MAX_ANGLE_RAD - Math.toRadians(6.0);
   }
 }

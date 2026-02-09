@@ -64,6 +64,11 @@ import org.littletonrobotics.junction.Logger;
 
 public class Drive extends SubsystemBase {
 
+  // --- Simulation-only tuning ---
+  // Make simulated rotation stop quickly when the driver releases the turn stick.
+  private static final double SIM_OMEGA_COMMAND_DEADBAND_RAD_PER_SEC = 0.25;
+  private static final double SIM_OMEGA_BRAKE_RATE = 18.0; // 1/s, bigger = more braking
+
   static final Lock odometryLock = new ReentrantLock();
   private final ImuIO imuIO;
   private final ImuIO.ImuIOInputs imuInputs = new ImuIO.ImuIOInputs();
@@ -313,6 +318,24 @@ public class Drive extends SubsystemBase {
    * @param speeds Speeds in meters/sec
    */
   public void runVelocity(ChassisSpeeds speeds) {
+    // Simulation-only: make rotation stop quickly when the driver releases the stick.
+    // Real robots lose angular momentum quickly due to scrub + friction; default sim often coasts.
+    if (edu.wpi.first.wpilibj.RobotBase.isSimulation()) {
+      if (Math.abs(speeds.omegaRadiansPerSecond) < SIM_OMEGA_COMMAND_DEADBAND_RAD_PER_SEC) {
+        // Exponential decay over one main loop period.
+        final double brakeScale = Math.exp(-SIM_OMEGA_BRAKE_RATE * Constants.loopPeriodSecs);
+        speeds =
+            new ChassisSpeeds(
+                speeds.vxMetersPerSecond,
+                speeds.vyMetersPerSecond,
+                speeds.omegaRadiansPerSecond * brakeScale);
+        // If we're basically at zero, hard clamp.
+        if (Math.abs(speeds.omegaRadiansPerSecond) < 0.05) {
+          speeds = new ChassisSpeeds(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond, 0.0);
+        }
+      }
+    }
+
     // Calculate module setpoints
     ChassisSpeeds discreteSpeeds = ChassisSpeeds.discretize(speeds, Constants.loopPeriodSecs);
     SwerveModuleState[] setpointStates = kinematics.toSwerveModuleStates(discreteSpeeds);
