@@ -13,6 +13,7 @@ import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.networktables.StringPublisher;
 import edu.wpi.first.networktables.StructArrayPublisher;
 import edu.wpi.first.networktables.StructPublisher;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.Mechanism2d;
 import edu.wpi.first.wpilibj.smartdashboard.MechanismLigament2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -21,6 +22,11 @@ import edu.wpi.first.wpilibj.util.Color8Bit;
 
 public class Telemetry {
   private final double MaxSpeed;
+
+  // Throttle NetworkTables publishes to keep dashboards responsive (Elastic, etc.).
+  // 20 Hz is plenty for human display and avoids backlogging NT/UI over long runs.
+  private static final double K_NT_PUBLISH_PERIOD_SEC = 0.05;
+  private double lastNtPublishSec = 0.0;
 
   /**
    * Construct a telemetry object, with the specified max speed of the robot
@@ -104,6 +110,12 @@ public class Telemetry {
 
   /** Accept the swerve drive state and telemeterize it to SmartDashboard and SignalLogger. */
   public void telemeterize(SwerveDriveState state) {
+    double nowSec = Timer.getFPGATimestamp();
+    if ((nowSec - lastNtPublishSec) < K_NT_PUBLISH_PERIOD_SEC) {
+      return;
+    }
+    lastNtPublishSec = nowSec;
+
     /* Telemeterize the swerve drive state */
     drivePose.set(state.Pose);
     driveSpeeds.set(state.Speeds);

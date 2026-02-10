@@ -4,7 +4,6 @@
 
 package frc.robot.commands;
 
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.TestTurretSubsystem;
 
@@ -12,14 +11,13 @@ import frc.robot.subsystems.TestTurretSubsystem;
 public class TurretFlipCommand extends Command {
   private final TestTurretSubsystem turret;
 
-  // Target on the opposite side of the wrap range ("option 2")
-  private double flippedAngleRad = 0.0;
+  // Must be > TestTurretSubsystem.isAtLimit() band (6 deg) so we don't immediately re-trigger.
+  private static final double OPPOSITE_LIMIT_MARGIN_DEG = 25.0;
+  private static final double FINISH_TOLERANCE_DEG = 8.0;
+  private static final double TIMEOUT_SEC = 2.0;
 
-  // How far away from the hard limit we want to end up after flipping
-  private static final double K_UNWIND_MARGIN_RAD = Math.toRadians(15.0);
-
-  // Finish tolerance
-  private static final double K_TOLERANCE_RAD = Math.toRadians(7.0);
+  private double targetAngleRad = 0.0;
+  private double startTimeSec = 0.0;
 
   public TurretFlipCommand(TestTurretSubsystem turret) {
     this.turret = turret;
@@ -27,41 +25,43 @@ public class TurretFlipCommand extends Command {
 
   @Override
   public void initialize() {
-    double currentAngleRad = turret.getPositionRadians();
+    startTimeSec = edu.wpi.first.wpilibj.Timer.getFPGATimestamp();
 
-    // If we're on the + side, jump to the - side (and vice versa), keeping a margin
-    // so we don't sit right on the limit.
+    double currentAngleRad = turret.getPositionRadians();
+    double marginRad = Math.toRadians(OPPOSITE_LIMIT_MARGIN_DEG);
+
+    // If we're on the + side, unwind to near the - limit. If on the - side, unwind to near the +
+    // limit.
     if (currentAngleRad >= 0.0) {
-      flippedAngleRad = turret.MIN_ANGLE_RAD + K_UNWIND_MARGIN_RAD;
+      targetAngleRad = turret.MIN_ANGLE_RAD + marginRad;
     } else {
-      flippedAngleRad = turret.MAX_ANGLE_RAD - K_UNWIND_MARGIN_RAD;
+      targetAngleRad = turret.MAX_ANGLE_RAD - marginRad;
     }
 
-    turret.setTargetAngleRadians(flippedAngleRad);
+    turret.setTargetAngleRadians(targetAngleRad);
   }
 
+  // Called every time the scheduler runs while the command is scheduled.
   @Override
   public void execute() {
-    // Keep target applied in case something else adjusts it.
-    turret.setTargetAngleRadians(flippedAngleRad);
-    SmartDashboard.putBoolean(
-        "TurretAtTarget",
-        Math.abs(turret.getPositionRadians() - flippedAngleRad) <= K_TOLERANCE_RAD);
-    SmartDashboard.putNumber("FlippedAngle", flippedAngleRad);
-    SmartDashboard.putNumber("TurretPosRad", turret.getPositionRadians());
+    // Nothing to do; the subsystem's closed-loop control will drive toward the target.
   }
+
+  // Called once the command ends or is interrupted.
+  @Override
+  public void end(boolean interrupted) {}
 
   // Returns true when the command should end.
-
-  @Override
-  public void end(boolean interrupted) {
-    // Keep holding position at whatever target we were heading toward.
-    turret.setTargetAngleRadians(flippedAngleRad);
-  }
-
   @Override
   public boolean isFinished() {
-    // Finish immediately; the follow command can continue running while the turret moves.
-    return true;
+    // Stay scheduled until we reach the unwind target so the follow command pauses tracking.
+    double errRad = Math.abs(turret.getPositionRadians() - targetAngleRad);
+    if (errRad <= Math.toRadians(FINISH_TOLERANCE_DEG)) {
+      return true;
+    }
+
+    // Failsafe: never stay scheduled forever.
+    double now = edu.wpi.first.wpilibj.Timer.getFPGATimestamp();
+    return (now - startTimeSec) >= TIMEOUT_SEC;
   }
 }

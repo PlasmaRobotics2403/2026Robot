@@ -24,9 +24,10 @@ public class TestTurretFollowCommand extends Command {
   private double targetAngleRad = 0.0;
 
   private double lastFlipTimeSec = -1.0;
-  private static final double kFlipCooldownSec = 0.5;
+  private static final double kFlipCooldownSec = 1;
 
   private TurretFlipCommand activeFlipCommand;
+  private boolean flipArmed = true;
 
   public TestTurretFollowCommand(TestTurretSubsystem turret, Vision vision, int cameraIndex) {
     this.turret = turret;
@@ -47,13 +48,24 @@ public class TestTurretFollowCommand extends Command {
 
     activeFlipCommand = null;
     lastFlipTimeSec = -1.0;
+    flipArmed = true;
   }
 
   @Override
   public void execute() {
     // If we're currently flipping/unwinding, don't overwrite the target with vision tracking.
-    if (activeFlipCommand != null && activeFlipCommand.isScheduled()) {
-      return;
+    if (activeFlipCommand != null) {
+      if (activeFlipCommand.isScheduled()) {
+        return;
+      }
+      // Flip finished; clear it so we can resume tracking.
+      activeFlipCommand = null;
+    }
+
+    // Re-arm once we've exited the limit band.
+    // This prevents ping-ponging when the unwind ends near the opposite limit.
+    if (!turret.isAtLimit()) {
+      flipArmed = true;
     }
 
     boolean seesTag = vision.seesTag(cameraIndex, kTagId);
@@ -73,12 +85,13 @@ public class TestTurretFollowCommand extends Command {
 
     // targetAngleRad = MathUtil.clamp(targetAngleRad + correctionRad, -kMaxAngleRad, kMaxAngleRad);
     // targetAngleRad = targetAngleLimiter.calculate(targetAngleRad);
-    if (turret.isAtLimit()) {
+    if (flipArmed && turret.isAtLimit()) {
       double now = Timer.getFPGATimestamp();
       if (lastFlipTimeSec < 0.0 || (now - lastFlipTimeSec) > kFlipCooldownSec) {
         lastFlipTimeSec = now;
         activeFlipCommand = new TurretFlipCommand(turret);
         CommandScheduler.getInstance().schedule(activeFlipCommand);
+        flipArmed = false;
       }
       return;
     }

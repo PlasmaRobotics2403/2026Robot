@@ -11,7 +11,6 @@
 
 package frc.robot.subsystems.vision;
 
-import static frc.robot.Constants.Cameras.cameraStdDevFactors;
 import static frc.robot.Constants.VisionConstants.angularStdDevBaseline;
 import static frc.robot.Constants.VisionConstants.angularStdDevMegatag2Factor;
 import static frc.robot.Constants.VisionConstants.linearStdDevBaseline;
@@ -28,13 +27,12 @@ import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import frc.robot.Constants.Cameras;
+import frc.robot.Constants;
 import frc.robot.FieldConstants;
 import frc.robot.subsystems.vision.VisionIO.PoseObservationType;
+import frc.robot.util.DashboardThrottle;
 import java.util.LinkedList;
 import java.util.List;
 import org.littletonrobotics.junction.Logger;
@@ -46,9 +44,6 @@ public class Vision extends SubsystemBase {
   private final VisionIOInputsAutoLogged[] inputs;
   private final Alert[] disconnectedAlerts;
 
-  // Throttle DS warnings so we don't spam every loop.
-  private double lastPeriodicDsPrintSec = 0.0;
-
   // Dashboard outputs (AdvantageKit NT wrappers) so values reliably show up in this project.
   private final LoggedNetworkNumber camera0PrimaryTagId =
       new LoggedNetworkNumber("SmartDashboard/Vision/Camera0/PrimaryTagId", -1.0);
@@ -56,6 +51,11 @@ public class Vision extends SubsystemBase {
       new LoggedNetworkNumber("SmartDashboard/Vision/Camera0/Connected", 0.0);
   private final LoggedNetworkNumber camera0TagCount =
       new LoggedNetworkNumber("SmartDashboard/Vision/Camera0/TagCount", 0.0);
+
+  private static final double K_DASHBOARD_PUBLISH_PERIOD_SEC = 0.2; // 5 Hz
+
+  private double lastPoseArrayLogSec = 0.0;
+  private static final double K_POSE_ARRAY_LOG_PERIOD_SEC = 0.5; // 2 Hz
 
   public Vision(VisionConsumer consumer, VisionIO... io) {
     this.consumer = consumer;
@@ -76,8 +76,8 @@ public class Vision extends SubsystemBase {
     }
 
     // Log the robot-to-camera transformations
-    Logger.recordOutput("Vision/RobotToCamera0", Cameras.robotToCamera0);
-    Logger.recordOutput("Vision/RobotToCamera1", Cameras.robotToCamera1);
+    Logger.recordOutput("Vision/RobotToCamera0", Constants.Cameras.robotToCamera0);
+    Logger.recordOutput("Vision/RobotToCamera1", Constants.Cameras.robotToCamera1);
   }
 
   /**
@@ -133,13 +133,12 @@ public class Vision extends SubsystemBase {
   @Override
   public void periodic() {
     // Heartbeat so we can tell at a glance that Vision.periodic() is executing.
-    double nowSec = Timer.getFPGATimestamp();
-    if (nowSec - lastPeriodicDsPrintSec > 1.0) {
-      lastPeriodicDsPrintSec = nowSec;
-      DriverStation.reportWarning("Vision.periodic() running", false);
+    // Avoid spamming DriverStation warnings every second (it can bog things down over time).
+    // Light dashboard fields (throttled)
+    if (DashboardThrottle.shouldPublish("Vision/Dashboard", K_DASHBOARD_PUBLISH_PERIOD_SEC)) {
+      SmartDashboard.putBoolean("Vision/Heartbeat", true);
+      SmartDashboard.putNumber("Vision/CameraCount", io.length);
     }
-    SmartDashboard.putBoolean("Vision/Heartbeat", true);
-    SmartDashboard.putNumber("Vision/CameraCount", io.length);
 
     for (int i = 0; i < io.length; i++) {
       io[i].updateInputs(inputs[i]);
@@ -148,14 +147,18 @@ public class Vision extends SubsystemBase {
       // Quick debug number: show one detected tag ID (or -1 if none)
       Logger.recordOutput(
           "Vision/Camera" + Integer.toString(i) + "/PrimaryTagId", getPrimaryTagId(i));
-      SmartDashboard.putNumber(
-          "Vision/Camera" + Integer.toString(i) + "/PrimaryTagId", getPrimaryTagId(i));
+      // SmartDashboard publishing is throttled below.
 
       // Helpful extra debug fields
-      SmartDashboard.putBoolean(
-          "Vision/Camera" + Integer.toString(i) + "/Connected", inputs[i].connected);
-      SmartDashboard.putNumber(
-          "Vision/Camera" + Integer.toString(i) + "/TagCount", inputs[i].tagIds.length);
+      if (DashboardThrottle.shouldPublish(
+          "Vision/Camera" + Integer.toString(i) + "/Dashboard", K_DASHBOARD_PUBLISH_PERIOD_SEC)) {
+        SmartDashboard.putNumber(
+            "Vision/Camera" + Integer.toString(i) + "/PrimaryTagId", getPrimaryTagId(i));
+        SmartDashboard.putBoolean(
+            "Vision/Camera" + Integer.toString(i) + "/Connected", inputs[i].connected);
+        SmartDashboard.putNumber(
+            "Vision/Camera" + Integer.toString(i) + "/TagCount", inputs[i].tagIds.length);
+      }
 
       // Also publish with LoggedNetworkNumber (camera 0 for now) so the value appears even if the
       // native SmartDashboard UI isn't auto-populating new keys.
@@ -171,6 +174,15 @@ public class Vision extends SubsystemBase {
     List<Pose3d> allRobotPoses = new LinkedList<>();
     List<Pose3d> allRobotPosesAccepted = new LinkedList<>();
     List<Pose3d> allRobotPosesRejected = new LinkedList<>();
+
+    double nowSec = edu.wpi.first.wpilibj.Timer.getFPGATimestamp();
+    boolean shouldLogPoseArrays = false;
+    if (Constants.tuningMode) {
+      if (nowSec - lastPoseArrayLogSec >= K_POSE_ARRAY_LOG_PERIOD_SEC) {
+        shouldLogPoseArrays = true;
+        lastPoseArrayLogSec = nowSec;
+      }
+    }
 
     // Loop over cameras
     for (int cameraIndex = 0; cameraIndex < io.length; cameraIndex++) {
@@ -229,9 +241,9 @@ public class Vision extends SubsystemBase {
           linearStdDev *= linearStdDevMegatag2Factor;
           angularStdDev *= angularStdDevMegatag2Factor;
         }
-        if (cameraIndex < cameraStdDevFactors.length) {
-          linearStdDev *= cameraStdDevFactors[cameraIndex];
-          angularStdDev *= cameraStdDevFactors[cameraIndex];
+        if (cameraIndex < Constants.Cameras.cameraStdDevFactors.length) {
+          linearStdDev *= Constants.Cameras.cameraStdDevFactors[cameraIndex];
+          angularStdDev *= Constants.Cameras.cameraStdDevFactors[cameraIndex];
         }
 
         // Send vision observation
@@ -241,32 +253,41 @@ public class Vision extends SubsystemBase {
             VecBuilder.fill(linearStdDev, linearStdDev, angularStdDev));
       }
 
-      // Log camera datadata
-      Logger.recordOutput(
-          "Vision/Camera" + Integer.toString(cameraIndex) + "/TagPoses",
-          tagPoses.toArray(new Pose3d[0]));
-      Logger.recordOutput(
-          "Vision/Camera" + Integer.toString(cameraIndex) + "/RobotPoses",
-          robotPoses.toArray(new Pose3d[0]));
-      Logger.recordOutput(
-          "Vision/Camera" + Integer.toString(cameraIndex) + "/RobotPosesAccepted",
-          robotPosesAccepted.toArray(new Pose3d[0]));
-      Logger.recordOutput(
-          "Vision/Camera" + Integer.toString(cameraIndex) + "/RobotPosesRejected",
-          robotPosesRejected.toArray(new Pose3d[0]));
+      // Heavy pose arrays can bog down NT dashboards over time. Only log occasionally and only
+      // during tuning.
+      if (shouldLogPoseArrays) {
+        Logger.recordOutput(
+            "Vision/Camera" + Integer.toString(cameraIndex) + "/TagPoses",
+            tagPoses.toArray(new Pose3d[tagPoses.size()]));
+        Logger.recordOutput(
+            "Vision/Camera" + Integer.toString(cameraIndex) + "/RobotPoses",
+            robotPoses.toArray(new Pose3d[robotPoses.size()]));
+        Logger.recordOutput(
+            "Vision/Camera" + Integer.toString(cameraIndex) + "/RobotPosesAccepted",
+            robotPosesAccepted.toArray(new Pose3d[robotPosesAccepted.size()]));
+        Logger.recordOutput(
+            "Vision/Camera" + Integer.toString(cameraIndex) + "/RobotPosesRejected",
+            robotPosesRejected.toArray(new Pose3d[robotPosesRejected.size()]));
+      }
       allTagPoses.addAll(tagPoses);
       allRobotPoses.addAll(robotPoses);
       allRobotPosesAccepted.addAll(robotPosesAccepted);
       allRobotPosesRejected.addAll(robotPosesRejected);
     }
 
-    // Log summary data
-    Logger.recordOutput("Vision/Summary/TagPoses", allTagPoses.toArray(new Pose3d[0]));
-    Logger.recordOutput("Vision/Summary/RobotPoses", allRobotPoses.toArray(new Pose3d[0]));
-    Logger.recordOutput(
-        "Vision/Summary/RobotPosesAccepted", allRobotPosesAccepted.toArray(new Pose3d[0]));
-    Logger.recordOutput(
-        "Vision/Summary/RobotPosesRejected", allRobotPosesRejected.toArray(new Pose3d[0]));
+    // Log summary data (same throttling as above)
+    if (shouldLogPoseArrays) {
+      Logger.recordOutput(
+          "Vision/Summary/TagPoses", allTagPoses.toArray(new Pose3d[allTagPoses.size()]));
+      Logger.recordOutput(
+          "Vision/Summary/RobotPoses", allRobotPoses.toArray(new Pose3d[allRobotPoses.size()]));
+      Logger.recordOutput(
+          "Vision/Summary/RobotPosesAccepted",
+          allRobotPosesAccepted.toArray(new Pose3d[allRobotPosesAccepted.size()]));
+      Logger.recordOutput(
+          "Vision/Summary/RobotPosesRejected",
+          allRobotPosesRejected.toArray(new Pose3d[allRobotPosesRejected.size()]));
+    }
   }
 
   @FunctionalInterface

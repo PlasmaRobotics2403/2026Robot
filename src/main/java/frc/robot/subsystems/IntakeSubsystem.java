@@ -16,6 +16,7 @@ import edu.wpi.first.units.measure.Current;
 import edu.wpi.first.units.measure.Voltage;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import frc.robot.Constants.RobotDevices;
+import frc.robot.util.DashboardThrottle;
 import frc.robot.util.RBSISubsystem;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
@@ -116,22 +117,28 @@ public class IntakeSubsystem extends RBSISubsystem {
     Logger.recordOutput("Intake/Pivot/AppliedVolts", pivotAppliedVolts.getValueAsDouble());
     Logger.recordOutput("Intake/Pivot/SupplyCurrentAmps", pivotSupplyCurrent.getValueAsDouble());
 
-    // SmartDashboard "Intake" tab key group
-    SmartDashboard.putNumber(
-        "Intake/Pivot/AngleDeg", Units.radiansToDegrees(getPivotPositionRadians()));
+    if (DashboardThrottle.shouldPublish("Intake/Dashboard", 0.1)) {
+      // SmartDashboard "Intake" tab key group
+      SmartDashboard.putNumber(
+          "Intake/Pivot/AngleDeg", Units.radiansToDegrees(getPivotPositionRadians()));
+    }
 
     Logger.recordOutput("Intake/Roller/VelocityRadPerSec", getRollerVelocityRadPerSec());
     Logger.recordOutput("Intake/Roller/AppliedVolts", rollerAppliedVolts.getValueAsDouble());
     Logger.recordOutput("Intake/Roller/SupplyCurrentAmps", rollerSupplyCurrent.getValueAsDouble());
 
-    // SmartDashboard "Intake" tab key group
-    SmartDashboard.putNumber(
-        "Intake/Roller/SpeedRPM", (getRollerVelocityRadPerSec() * 60.0) / (2.0 * Math.PI));
+    if (DashboardThrottle.shouldPublish("Intake/Dashboard", 0.1)) {
+      // SmartDashboard "Intake" tab key group
+      SmartDashboard.putNumber(
+          "Intake/Roller/SpeedRPM", (getRollerVelocityRadPerSec() * 60.0) / (2.0 * Math.PI));
+    }
 
     Logger.recordOutput("Intake/Roller/CommandVolts", rollerCommandVolts);
     Logger.recordOutput("Intake/Roller/CommandPercent", rollerCommandPercent);
-    SmartDashboard.putNumber("Intake/Roller/CommandVolts", rollerCommandVolts);
-    SmartDashboard.putNumber("Intake/Roller/CommandPercent", rollerCommandPercent);
+    if (DashboardThrottle.shouldPublish("Intake/Commands", 0.1)) {
+      SmartDashboard.putNumber("Intake/Roller/CommandVolts", rollerCommandVolts);
+      SmartDashboard.putNumber("Intake/Roller/CommandPercent", rollerCommandPercent);
+    }
 
     // Pivot closed-loop control (optional)
     if (pivotClosedLoopEnabled) {
@@ -146,15 +153,19 @@ public class IntakeSubsystem extends RBSISubsystem {
       Logger.recordOutput("Intake/Pivot/PID/ErrorRad", errorRad);
       Logger.recordOutput("Intake/Pivot/PID/OutputVolts", outputVolts);
 
-      SmartDashboard.putBoolean("Intake/Pivot/PID/Enabled", true);
-      SmartDashboard.putNumber(
-          "Intake/Pivot/PID/TargetDeg", Units.radiansToDegrees(pivotTargetRad));
-      SmartDashboard.putNumber("Intake/Pivot/PID/ErrorDeg", Units.radiansToDegrees(errorRad));
-      SmartDashboard.putNumber("Intake/Pivot/PID/OutputVolts", outputVolts);
-      SmartDashboard.putBoolean("Intake/Pivot/PID/AtTarget", isPivotAtTarget());
+      if (DashboardThrottle.shouldPublish("Intake/PivotPID", 0.1)) {
+        SmartDashboard.putBoolean("Intake/Pivot/PID/Enabled", true);
+        SmartDashboard.putNumber(
+            "Intake/Pivot/PID/TargetDeg", Units.radiansToDegrees(pivotTargetRad));
+        SmartDashboard.putNumber("Intake/Pivot/PID/ErrorDeg", Units.radiansToDegrees(errorRad));
+        SmartDashboard.putNumber("Intake/Pivot/PID/OutputVolts", outputVolts);
+        SmartDashboard.putBoolean("Intake/Pivot/PID/AtTarget", isPivotAtTarget());
+      }
     } else {
       Logger.recordOutput("Intake/Pivot/PID/Enabled", false);
-      SmartDashboard.putBoolean("Intake/Pivot/PID/Enabled", false);
+      if (DashboardThrottle.shouldPublish("Intake/PivotPID", 0.2)) {
+        SmartDashboard.putBoolean("Intake/Pivot/PID/Enabled", false);
+      }
     }
   }
 

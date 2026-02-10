@@ -16,6 +16,7 @@ import edu.wpi.first.units.measure.Current;
 import edu.wpi.first.units.measure.Voltage;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import frc.robot.Constants;
+import frc.robot.util.DashboardThrottle;
 import frc.robot.util.RBSISubsystem;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
@@ -102,10 +103,12 @@ public class TestTurretSubsystem extends RBSISubsystem {
     Logger.recordOutput("Turret/PID/kP", lastDashboardP);
     Logger.recordOutput("Turret/PID/kI", lastDashboardI);
     Logger.recordOutput("Turret/PID/kD", lastDashboardD);
-    SmartDashboard.putNumber(DASHBOARD_PID_PREFIX + "Active kP", lastDashboardP);
-    SmartDashboard.putNumber(DASHBOARD_PID_PREFIX + "Active kI", lastDashboardI);
-    SmartDashboard.putNumber(DASHBOARD_PID_PREFIX + "Active kD", lastDashboardD);
-    SmartDashboard.putBoolean("Turret/AtLimit", isAtLimit());
+    if (DashboardThrottle.shouldPublish("Turret/Dashboard", 0.1)) {
+      SmartDashboard.putNumber(DASHBOARD_PID_PREFIX + "Active kP", lastDashboardP);
+      SmartDashboard.putNumber(DASHBOARD_PID_PREFIX + "Active kI", lastDashboardI);
+      SmartDashboard.putNumber(DASHBOARD_PID_PREFIX + "Active kD", lastDashboardD);
+      SmartDashboard.putBoolean("Turret/AtLimit", isAtLimit());
+    }
     Logger.recordOutput("Turret/PositionRot", getPositionRotations());
     Logger.recordOutput("Turret/VelocityRotPerSec", getVelocityRotationsPerSecond());
     Logger.recordOutput("Turret/AppliedVolts", appliedVolts.getValueAsDouble());
@@ -114,14 +117,18 @@ public class TestTurretSubsystem extends RBSISubsystem {
     // Human-friendly angle logging (post-gearbox)
     double angleDeg = Units.radiansToDegrees(getPositionRadians());
     Logger.recordOutput("Turret/AngleDeg", angleDeg);
-    SmartDashboard.putNumber("Turret/AngleDeg", angleDeg);
+    if (DashboardThrottle.shouldPublish("Turret/Angle", 0.1)) {
+      SmartDashboard.putNumber("Turret/AngleDeg", angleDeg);
+    }
 
     Logger.recordOutput("Turret/ClosedLoopEnabled", holdPositionEnabled);
     Logger.recordOutput("Turret/TargetAngleRad", targetAngleRad);
     Logger.recordOutput("Turret/AngleErrorRad", targetAngleRad - getPositionRadians());
 
-    SmartDashboard.putNumber("Turret/TargetAngleDeg", Units.radiansToDegrees(targetAngleRad));
-    SmartDashboard.putBoolean("Turret/ClosedLoopEnabled", holdPositionEnabled);
+    if (DashboardThrottle.shouldPublish("Turret/Target", 0.1)) {
+      SmartDashboard.putNumber("Turret/TargetAngleDeg", Units.radiansToDegrees(targetAngleRad));
+      SmartDashboard.putBoolean("Turret/ClosedLoopEnabled", holdPositionEnabled);
+    }
 
     if (holdPositionEnabled) {
       // Clamp target to soft limits.

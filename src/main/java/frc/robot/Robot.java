@@ -27,6 +27,7 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import frc.robot.util.DashboardThrottle;
 import frc.robot.util.VirtualSubsystem;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -54,13 +55,13 @@ public class Robot extends LoggedRobot {
   private Timer m_disabledTimer;
 
   /** Throttle DS prints so we don't spam the driver station. */
-  private double lastHeartbeatPrintSec = 0.0;
 
   // Define simulation fields here
   private VisionSystemSim visionSim;
 
   // Track scheduled commands for SmartDashboard display
   private final Set<String> scheduledCommandNames = ConcurrentHashMap.newKeySet();
+  private static final double K_COMMAND_DASHBOARD_PERIOD_SEC = 0.2; // 5 Hz
 
   /**
    * This function is run when the robot is first started up and should be used for any
@@ -150,11 +151,6 @@ public class Robot extends LoggedRobot {
     // Robot-wide heartbeat so we can prove the main loop is running and DS/NT are connected.
     // Unmanaged.feedEnable(100);
     SmartDashboard.putBoolean("Robot/Heartbeat", true);
-    double nowSec = Timer.getFPGATimestamp();
-    if (nowSec - lastHeartbeatPrintSec > 1.0) {
-      lastHeartbeatPrintSec = nowSec;
-      DriverStation.reportWarning("Robot.robotPeriodic() running", false);
-    }
 
     // Switch thread to high priority to improve loop timing
     if (isReal()) {
@@ -172,10 +168,13 @@ public class Robot extends LoggedRobot {
     CommandScheduler.getInstance().run();
 
     // Publish command scheduler state to SmartDashboard (useful for debugging what is running).
-    SmartDashboard.putNumber("Commands/ScheduledCount", scheduledCommandNames.size());
-    SmartDashboard.putString(
-        "Commands/Scheduled",
-        scheduledCommandNames.stream().sorted().collect(Collectors.joining(", ")));
+    // Throttled because the string join can be surprisingly expensive and chatty over NT.
+    if (DashboardThrottle.shouldPublish("Commands/Scheduled", K_COMMAND_DASHBOARD_PERIOD_SEC)) {
+      SmartDashboard.putNumber("Commands/ScheduledCount", scheduledCommandNames.size());
+      SmartDashboard.putString(
+          "Commands/Scheduled",
+          scheduledCommandNames.stream().sorted().collect(Collectors.joining(", ")));
+    }
 
     // Return to normal thread priority
     Threads.setCurrentThreadPriority(false, 10);
