@@ -327,6 +327,17 @@ public final class Constants {
     public static final double kSteerD = 20.0;
   }
 
+  public static final class ShooterConstants {
+    public static final double shooterPivotKV = 0.1;
+    public static final double shooterPivotKP = 0.1;
+    public static final double shooterPivotKD = 0;
+    public static final double shooterPivotKS = 0.25;
+
+    public static final double shooterPivotVel = 0.1;
+    public static final double shooterPivotAccel = 400;
+    public static final double shooterPivotJerk = 4000;
+  }
+
   /************************************************************************* */
   /** Example Flywheel Mechanism Constants ********************************* */
   public static final class FlywheelConstants {
@@ -359,6 +370,21 @@ public final class Constants {
 
   /************************************************************************* */
   /** Place Other Mechanism Constant Classes Here ************************** */
+  public static final class TurretConstants {
+    // Slot0 gains
+    public static final double kP = 6.7;
+    public static final double kI = 0.0;
+    public static final double kD = 0.00001;
+    public static final double kS = 0.0;
+    public static final double kV = 0.0;
+    public static final double kA = 0.0;
+
+    // Motion Magic profile (mechanism/output rotations per second)
+    public static final double kCruiseVelocityRps = 200;
+    public static final double kAccelerationRpsPerSec = 400;
+    public static final double kJerkRpsPerSec2 = 4000;
+  }
+
   // public static class Mechanism1Constants {}
   // public static class Mechanism2Constants {}
   // ...

@@ -3,9 +3,7 @@ package frc.robot.commands;
 import edu.wpi.first.math.filter.SlewRateLimiter;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.util.Units;
-import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import frc.robot.subsystems.TestTurretSubsystem;
 import frc.robot.subsystems.vision.Vision;
 
@@ -53,20 +51,15 @@ public class TestTurretFollowCommand extends Command {
 
   @Override
   public void execute() {
-    // If we're currently flipping/unwinding, don't overwrite the target with vision tracking.
-    if (activeFlipCommand != null) {
-      if (activeFlipCommand.isScheduled()) {
-        return;
-      }
-      // Flip finished; clear it so we can resume tracking.
-      activeFlipCommand = null;
-    }
-
-    // Re-arm once we've exited the limit band.
-    // This prevents ping-ponging when the unwind ends near the opposite limit.
-    if (!turret.isAtLimit()) {
-      flipArmed = true;
-    }
+    // if (activeFlipCommand != null) {
+    //   if (activeFlipCommand.isScheduled()) {
+    //     return;
+    //   }
+    //   activeFlipCommand = null;
+    // }
+    // if (!turret.isAtLimit()) {
+    //   flipArmed = true;
+    // }
 
     boolean seesTag = vision.seesTag(cameraIndex, kTagId);
     Rotation2d tx = vision.getTargetXForTag(cameraIndex, kTagId);
@@ -85,16 +78,17 @@ public class TestTurretFollowCommand extends Command {
 
     // targetAngleRad = MathUtil.clamp(targetAngleRad + correctionRad, -kMaxAngleRad, kMaxAngleRad);
     // targetAngleRad = targetAngleLimiter.calculate(targetAngleRad);
-    if (flipArmed && turret.isAtLimit()) {
-      double now = Timer.getFPGATimestamp();
-      if (lastFlipTimeSec < 0.0 || (now - lastFlipTimeSec) > kFlipCooldownSec) {
-        lastFlipTimeSec = now;
-        activeFlipCommand = new TurretFlipCommand(turret);
-        CommandScheduler.getInstance().schedule(activeFlipCommand);
-        flipArmed = false;
-      }
-      return;
-    }
+
+    // if (flipArmed && turret.isAtLimit()) {
+    //   double now = Timer.getFPGATimestamp();
+    //   if (lastFlipTimeSec < 0.0 || (now - lastFlipTimeSec) > kFlipCooldownSec) {
+    //     lastFlipTimeSec = now;
+    //     activeFlipCommand = new TurretFlipCommand(turret);
+    //     CommandScheduler.getInstance().schedule(activeFlipCommand);
+    //     flipArmed = false;
+    //   }
+    //   return;
+    // }
 
     turret.setTargetAngleRadians(turret.getPositionRadians() - tx.getRadians());
   }

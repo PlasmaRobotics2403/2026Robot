@@ -28,10 +28,14 @@ import frc.robot.FieldConstants.AprilTagLayoutType;
 import frc.robot.commands.AutopilotCommands;
 import frc.robot.commands.DriveCommands;
 import frc.robot.commands.IntakeCommand;
-import frc.robot.commands.TestMotorCommand;
+import frc.robot.commands.RunIndexterDutyCycle;
 import frc.robot.commands.TestTurretFollowCommand;
+import frc.robot.commands.TestTurretToPosCommand;
+import frc.robot.commands.TurretFlipCommand;
+import frc.robot.subsystems.IndexerSubsystem;
 import frc.robot.subsystems.IntakeSubsystem;
 import frc.robot.subsystems.TestMotorSubsystem;
+import frc.robot.subsystems.TestMotorSubsystemTwo;
 import frc.robot.subsystems.TestTurretSubsystem;
 import frc.robot.subsystems.accelerometer.Accelerometer;
 import frc.robot.subsystems.drive.Drive;
@@ -42,6 +46,8 @@ import frc.robot.subsystems.flywheel_example.FlywheelIOSim;
 import frc.robot.subsystems.imu.ImuIO;
 import frc.robot.subsystems.imu.ImuIOPigeon2;
 import frc.robot.subsystems.imu.ImuIOSim;
+import frc.robot.subsystems.shooter.SimTurretSubsystem;
+import frc.robot.subsystems.shooter.TurretSubsystem;
 import frc.robot.subsystems.vision.CameraSweepEvaluator;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionIO;
@@ -81,12 +87,19 @@ public class RobotContainer {
 
   private final ImuIO m_imu;
   private final Flywheel m_flywheel;
-
   // Test mechanism subsystems
   private final TestTurretSubsystem m_testTurret = new TestTurretSubsystem();
 
+  // "Competition-style" turret logic sandbox. This is separated from TestTurretSubsystem so the
+  // test turret remains available as a fallback.
+  private final TurretSubsystem m_turretSmSandbox =
+      new SimTurretSubsystem(Units.degreesToRadians(-180.0), Units.degreesToRadians(180.0));
+
   // Simple test motor subsystem
-  private final TestMotorSubsystem m_testMotor = new TestMotorSubsystem(24);
+  private final TestMotorSubsystem m_testMotor = new TestMotorSubsystem(26);
+  private final TestMotorSubsystemTwo m_testMotorTwo = new TestMotorSubsystemTwo(24);
+
+  private final IndexerSubsystem m_indexer = new IndexerSubsystem();
 
   // Intake subsystem
   private final IntakeSubsystem m_intake = new IntakeSubsystem();
@@ -282,17 +295,14 @@ public class RobotContainer {
 
     // ** Example Commands -- Remap, remove, or change as desired **
     // Hold B button to run the test motor (duty cycle)
-    driverController.b().whileTrue(new TestMotorCommand(m_testMotor, 0.75));
+    driverController.b().whileTrue(new RunIndexterDutyCycle(m_indexer, 0.5, 0.5));
 
     // Press X button --> Stop with wheels in X-Lock position
     driverController.x().onTrue(Commands.runOnce(m_drivebase::stopWithX, m_drivebase));
 
     // Press Y button --> Manually Re-Zero the Gyro
-    driverController
-        .y()
-        .onTrue(
-            Commands.runOnce(m_drivebase::zeroHeadingForAlliance, m_drivebase)
-                .ignoringDisable(true));
+    driverController.y().onTrue(new TestTurretToPosCommand(m_testTurret, 170));
+    driverController.x().onTrue(new TestTurretToPosCommand(m_testTurret, -170));
 
     // Press RIGHT BUMPER --> Deploy intake + run rollers; release -> stow + stop
     driverController.rightBumper().whileTrue(new IntakeCommand(m_intake));
@@ -333,9 +343,23 @@ public class RobotContainer {
                 m_drivebase::stop,
                 m_drivebase));
 
-    // Hold A to aim turret at AprilTag 1 (tx -> 0).
+    // Hold A to aim turret at the AprilTag(tx -> 0).
     // If no target is visible, the turret holds its current position.
-    driverController.a().whileTrue(new TestTurretFollowCommand(m_testTurret, m_vision));
+    Command follow = new TestTurretFollowCommand(m_testTurret, m_vision);
+    Command flip = new TurretFlipCommand(m_testTurret);
+
+    Command followFlipLoop =
+        Commands.repeatingSequence(
+            follow.until(m_testTurret::isAtLimit), flip, Commands.waitSeconds(1));
+    driverController.a().whileTrue(followFlipLoop);
+
+    // State-machine turret follow (separate binding) - only enable during tuning so it can't
+    // surprise you mid-match.
+    if (m_vision != null) {
+      if (Constants.tuningMode) {
+        driverController.b();
+      }
+    }
 
     if (Constants.getMode() == Mode.SIM) {
       // IN SIMULATION ONLY:

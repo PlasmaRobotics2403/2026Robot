@@ -49,7 +49,10 @@ public class TurretFlipCommand extends Command {
 
   // Called once the command ends or is interrupted.
   @Override
-  public void end(boolean interrupted) {}
+  public void end(boolean interrupted) {
+    // Ensure turret stops if the command is canceled (e.g., A released mid-flip).
+    turret.stop();
+  }
 
   // Returns true when the command should end.
   @Override

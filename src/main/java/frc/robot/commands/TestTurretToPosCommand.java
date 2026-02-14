@@ -6,11 +6,11 @@ import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.TestTurretSubsystem;
 
 public class TestTurretToPosCommand extends Command {
-  private static final double kTestAngleRad = Units.degreesToRadians(45.0);
+  private double kTestAngle;
 
   private static final double kZeroAngleRad = 0.0;
 
-  private static final double kMaxAngleRad = Units.degreesToRadians(170.0);
+  private static final double kMaxAngleRad = Units.degreesToRadians(180.0);
   private static final double kSlewRateRadPerSec = Units.degreesToRadians(360.0);
 
   private final TestTurretSubsystem turret;
@@ -18,14 +18,15 @@ public class TestTurretToPosCommand extends Command {
   private final SlewRateLimiter targetAngleLimiter = new SlewRateLimiter(kSlewRateRadPerSec);
   private double targetAngleRad = 0.0;
 
-  public TestTurretToPosCommand(TestTurretSubsystem turret) {
+  public TestTurretToPosCommand(TestTurretSubsystem turret, double pos) {
     this.turret = turret;
+    kTestAngle = Units.degreesToRadians(pos);
     addRequirements(turret);
   }
 
   @Override
   public void initialize() {
-    targetAngleRad = Math.min(Math.max(kTestAngleRad, -kMaxAngleRad), kMaxAngleRad);
+    targetAngleRad = Math.min(Math.max(kTestAngle, -kMaxAngleRad), kMaxAngleRad);
     targetAngleLimiter.reset(turret.getPositionRadians());
     turret.setTargetAngleRadians(turret.getPositionRadians());
   }
