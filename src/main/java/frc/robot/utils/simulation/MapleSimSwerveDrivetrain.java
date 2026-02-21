@@ -42,6 +42,7 @@ import org.ironmaple.simulation.drivesims.configs.DriveTrainSimulationConfig;
 import org.ironmaple.simulation.drivesims.configs.SwerveModuleSimulationConfig;
 import org.ironmaple.simulation.motorsims.SimulatedBattery;
 import org.ironmaple.simulation.motorsims.SimulatedMotorController;
+import org.ironmaple.simulation.seasonspecific.rebuilt2026.Arena2026Rebuilt;
 
 /**
  *
@@ -54,6 +55,7 @@ import org.ironmaple.simulation.motorsims.SimulatedMotorController;
  * <p>It replaces the {@link com.ctre.phoenix6.swerve.SimSwerveDrivetrain} class.
  */
 public class MapleSimSwerveDrivetrain {
+  private static boolean arenaConfigured = false;
   private final Pigeon2SimState pigeonSim;
   private final SimSwerveModule[] simModules;
   public final SwerveDriveSimulation mapleSimDrive;
@@ -120,6 +122,12 @@ public class MapleSimSwerveDrivetrain {
     SwerveModuleSimulation[] moduleSimulations = mapleSimDrive.getModules();
     for (int i = 0; i < this.simModules.length; i++)
       simModules[i] = new SimSwerveModule(moduleConstants[0], moduleSimulations[i], modules[i]);
+
+    if (!arenaConfigured) {
+      // Keep field borders/major obstacles while disabling ramp colliders to allow traversal.
+      SimulatedArena.overrideInstance(new Arena2026Rebuilt(false));
+      arenaConfigured = true;
+    }
 
     SimulatedArena.overrideSimulationTimings(simPeriod, 1);
     SimulatedArena.getInstance().addDriveTrainSimulation(mapleSimDrive);

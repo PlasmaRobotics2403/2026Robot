@@ -326,6 +326,31 @@ public final class Constants {
         SwerveConstants.kDriveGearRatio / DCMotor.getKrakenX60Foc(1).KtNMPerAmp;
     public static final double kSteerP = 400.0;
     public static final double kSteerD = 20.0;
+
+    /** Simulation-only bump traversal shaping constants (no effect on real robot). */
+    public static final class BumpSimConstants {
+      public static final boolean enabled = true;
+
+      // Speed shaping through ascent/crest/descent
+      public static final double entrySpeedScale = 0.65;
+      public static final double crestSpeedScale = 0.5;
+
+      // Lateral damping while crossing a bump zone
+      public static final double lateralDamping = 0.7;
+
+      // Maximum translational acceleration during bump shaping
+      public static final double maxAccelMps2 = 2.4;
+
+      // Heading hold (capture heading on bump entry)
+      public static final double headingHoldKp = 3.2;
+      public static final double headingHoldMaxOmegaRadPerSec = 2.0;
+
+      // Blend distance around bump boundaries
+      public static final double transitionMeters = 0.20;
+
+      // Ignore near-zero motion so the state machine doesn't chatter
+      public static final double minCrossingSpeedMps = 0.25;
+    }
   }
 
   public static final class ShooterConstants {

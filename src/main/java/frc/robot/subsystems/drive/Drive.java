@@ -67,11 +67,6 @@ import org.littletonrobotics.junction.Logger;
 
 public class Drive extends SubsystemBase {
 
-  // --- Simulation-only tuning ---
-  // Make simulated rotation stop quickly when the driver releases the turn stick.
-  private static final double SIM_OMEGA_COMMAND_DEADBAND_RAD_PER_SEC = 0.25;
-  private static final double SIM_OMEGA_BRAKE_RATE = 18.0; // 1/s, bigger = more braking
-
   static final Lock odometryLock = new ReentrantLock();
   private final ImuIO imuIO;
   private final ImuIO.ImuIOInputs imuInputs = new ImuIO.ImuIOInputs();
@@ -104,6 +99,7 @@ public class Drive extends SubsystemBase {
   private CommandSwerveDrivetrain simMapleDrive;
   private final SwerveRequest.ApplyRobotSpeeds simApplyRobotSpeeds =
       new SwerveRequest.ApplyRobotSpeeds();
+  private final BumpZoneModel bumpZoneModel = new BumpZoneModel();
 
   // Constructor
   public Drive(ImuIO imuIO) {
@@ -345,26 +341,22 @@ public class Drive extends SubsystemBase {
    * @param speeds Speeds in meters/sec
    */
   public void runVelocity(ChassisSpeeds speeds) {
-    // Simulation-only: make rotation stop quickly when the driver releases the stick.
-    // Real robots lose angular momentum quickly due to scrub + friction; default sim often coasts.
-    if (edu.wpi.first.wpilibj.RobotBase.isSimulation()) {
-      if (Math.abs(speeds.omegaRadiansPerSecond) < SIM_OMEGA_COMMAND_DEADBAND_RAD_PER_SEC) {
-        // Exponential decay over one main loop period.
-        final double brakeScale = Math.exp(-SIM_OMEGA_BRAKE_RATE * Constants.loopPeriodSecs);
-        speeds =
-            new ChassisSpeeds(
-                speeds.vxMetersPerSecond,
-                speeds.vyMetersPerSecond,
-                speeds.omegaRadiansPerSecond * brakeScale);
-        // If we're basically at zero, hard clamp.
-        if (Math.abs(speeds.omegaRadiansPerSecond) < 0.05) {
-          speeds = new ChassisSpeeds(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond, 0.0);
-        }
-      }
-    }
-
     if (simMapleDrive != null) {
-      simMapleDrive.setControl(simApplyRobotSpeeds.withSpeeds(speeds));
+      var bumpResult = bumpZoneModel.apply(speeds, getPose(), Constants.loopPeriodSecs);
+      Logger.recordOutput("BumpSim/InZone", bumpResult.inZone);
+      Logger.recordOutput("BumpSim/Zone", bumpResult.zoneName);
+      Logger.recordOutput("BumpSim/State", bumpResult.phase.toString());
+      Logger.recordOutput("BumpSim/Progress", bumpResult.progress);
+      Logger.recordOutput("BumpSim/SpeedScale", bumpResult.speedScale);
+      Logger.recordOutput("BumpSim/HeadingErrorDeg", bumpResult.headingErrorDeg);
+      Logger.recordOutput(
+          "BumpSim/ShapedSpeeds",
+          new double[] {
+            bumpResult.speeds.vxMetersPerSecond,
+            bumpResult.speeds.vyMetersPerSecond,
+            bumpResult.speeds.omegaRadiansPerSecond
+          });
+      simMapleDrive.setControl(simApplyRobotSpeeds.withSpeeds(bumpResult.speeds));
       return;
     }
 
