@@ -20,6 +20,7 @@ import static frc.robot.subsystems.drive.SwerveConstants.kFLYPosMeters;
 import static frc.robot.subsystems.drive.SwerveConstants.kFRXPosMeters;
 import static frc.robot.subsystems.drive.SwerveConstants.kFRYPosMeters;
 
+import com.ctre.phoenix6.swerve.SwerveRequest;
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 import com.pathplanner.lib.pathfinding.Pathfinding;
@@ -53,6 +54,8 @@ import frc.robot.Constants;
 import frc.robot.Constants.AutoConstants;
 import frc.robot.Constants.DrivebaseConstants;
 import frc.robot.Constants.RobotConstants;
+import frc.robot.generated.TunerConstants;
+import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.imu.ImuIO;
 import frc.robot.util.LocalADStarAK;
 import frc.robot.util.RBSIEnum.Mode;
@@ -98,6 +101,9 @@ public class Drive extends SubsystemBase {
               DrivebaseConstants.kMaxAngularSpeed, DrivebaseConstants.kMaxAngularAccel));
 
   private DriveSimPhysics simPhysics;
+  private CommandSwerveDrivetrain simMapleDrive;
+  private final SwerveRequest.ApplyRobotSpeeds simApplyRobotSpeeds =
+      new SwerveRequest.ApplyRobotSpeeds();
 
   // Constructor
   public Drive(ImuIO imuIO) {
@@ -120,12 +126,17 @@ public class Drive extends SubsystemBase {
         modules[i] = new Module(new ModuleIOSim(), i);
       }
 
+      // Use CTRE generated drivetrain + MapleSim as authoritative SIM physics.
+      simMapleDrive = TunerConstants.createDrivetrain();
+      simMapleDrive.resetPose(new Pose2d(2.0, 2.0, Rotation2d.kZero));
+
       // Load the physics simulator
       simPhysics =
           new DriveSimPhysics(
               kinematics,
               RobotConstants.kRobotMOI, // kg m^2
               RobotConstants.kMaxWheelTorque); // Nm
+      simPhysics.reset(new Pose2d(2.0, 2.0, Rotation2d.kZero));
     }
 
     // Usage reporting for swerve template
@@ -177,6 +188,15 @@ public class Drive extends SubsystemBase {
   /** Periodic function that is called each robot cycle by the command scheduler */
   @Override
   public void periodic() {
+    if (Constants.getMode() == Mode.SIM && simMapleDrive != null) {
+      // In SIM, MapleSim is authoritative for state/pose.
+      // Still publish module inputs for debugging dashboards.
+      for (var module : modules) {
+        module.periodic();
+      }
+      return;
+    }
+
     odometryLock.lock();
     try {
 
@@ -234,6 +254,13 @@ public class Drive extends SubsystemBase {
   /** Simulation Periodic Method */
   @Override
   public void simulationPeriodic() {
+    if (simMapleDrive != null) {
+      Logger.recordOutput("Sim/Pose", simMapleDrive.getSimulationTruePose());
+      Logger.recordOutput("Sim/Yaw", simMapleDrive.getSimulationTruePose().getRotation());
+      Logger.recordOutput("Sim/OdometryPose", simMapleDrive.getState().Pose);
+      return;
+    }
+
     final double dt = Constants.loopPeriodSecs;
 
     // 1) Advance module wheel physics
@@ -336,6 +363,11 @@ public class Drive extends SubsystemBase {
       }
     }
 
+    if (simMapleDrive != null) {
+      simMapleDrive.setControl(simApplyRobotSpeeds.withSpeeds(speeds));
+      return;
+    }
+
     // Calculate module setpoints
     ChassisSpeeds discreteSpeeds = ChassisSpeeds.discretize(speeds, Constants.loopPeriodSecs);
     SwerveModuleState[] setpointStates = kinematics.toSwerveModuleStates(discreteSpeeds);
@@ -411,12 +443,18 @@ public class Drive extends SubsystemBase {
   /** Returns the measured chassis speeds of the robot. */
   @AutoLogOutput(key = "SwerveChassisSpeeds/Measured")
   public ChassisSpeeds getChassisSpeeds() {
+    if (simMapleDrive != null) {
+      return simMapleDrive.getSimulationTrueRobotRelativeSpeeds();
+    }
     return kinematics.toChassisSpeeds(getModuleStates());
   }
 
   /** Returns the current odometry pose. */
   @AutoLogOutput(key = "Odometry/Robot")
   public Pose2d getPose() {
+    if (simMapleDrive != null) {
+      return simMapleDrive.getSimulationTruePose();
+    }
     if (Constants.getMode() == Mode.SIM) {
       return simPhysics.getPose();
     }
@@ -426,6 +464,9 @@ public class Drive extends SubsystemBase {
   /** Returns the current odometry rotation. */
   @AutoLogOutput(key = "Odometry/Yaw")
   public Rotation2d getHeading() {
+    if (simMapleDrive != null) {
+      return simMapleDrive.getSimulationTruePose().getRotation();
+    }
     if (Constants.getMode() == Mode.SIM) {
       return simPhysics.getYaw();
     }
@@ -499,6 +540,10 @@ public class Drive extends SubsystemBase {
 
   /** Resets the current odometry pose. */
   public void resetPose(Pose2d pose) {
+    if (simMapleDrive != null) {
+      simMapleDrive.resetPose(pose);
+      return;
+    }
     m_PoseEstimator.resetPosition(rawGyroRotation, getModulePositions(), pose);
   }
 

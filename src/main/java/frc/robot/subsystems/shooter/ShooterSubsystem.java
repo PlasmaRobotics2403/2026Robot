@@ -1,5 +1,6 @@
 package frc.robot.subsystems.shooter;
 
+import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.NeutralModeValue;
@@ -14,7 +15,7 @@ public class ShooterSubsystem extends RBSISubsystem {
   private final TalonFXConfiguration pivotConfig;
 
   public ShooterSubsystem() {
-    pivotMotor = new TalonFX(PIVOT_MOTOR_ID, "rio");
+    pivotMotor = new TalonFX(PIVOT_MOTOR_ID, new CANBus("rio"));
     pivotConfig = new TalonFXConfiguration();
     pivotConfig.MotorOutput.NeutralMode = NeutralModeValue.Brake;
 

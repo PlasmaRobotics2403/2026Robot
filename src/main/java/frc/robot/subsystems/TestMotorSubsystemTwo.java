@@ -1,5 +1,6 @@
 package frc.robot.subsystems;
 
+import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.controls.DutyCycleOut;
 import com.ctre.phoenix6.hardware.TalonFX;
 import edu.wpi.first.math.MathUtil;
@@ -18,7 +19,7 @@ public class TestMotorSubsystemTwo extends RBSISubsystem {
 
   /** Create a test motor on a specific CAN bus (e.g., "rio", "canivore"). */
   public TestMotorSubsystemTwo(int canId, String canBus) {
-    motor = new TalonFX(canId, canBus);
+    motor = new TalonFX(canId, new CANBus(canBus));
   }
 
   /**

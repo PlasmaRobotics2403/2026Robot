@@ -1,6 +1,7 @@
 package frc.robot.subsystems;
 
 import com.ctre.phoenix6.BaseStatusSignal;
+import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.VoltageOut;
@@ -35,11 +36,11 @@ public class IntakeSubsystem extends RBSISubsystem {
   private final TalonFX pivotMotor =
       new TalonFX(
           RobotDevices.IntakeConstants.INTAKE_PIVOT.getDeviceNumber(),
-          RobotDevices.IntakeConstants.INTAKE_PIVOT.getBus());
+          new CANBus(RobotDevices.IntakeConstants.INTAKE_PIVOT.getBus()));
   private final TalonFX rollerMotor =
       new TalonFX(
           RobotDevices.IntakeConstants.INTAKE_ROLLER.getDeviceNumber(),
-          RobotDevices.IntakeConstants.INTAKE_ROLLER.getBus());
+          new CANBus(RobotDevices.IntakeConstants.INTAKE_ROLLER.getBus()));
 
   private final int[] powerPorts =
       new int[] {

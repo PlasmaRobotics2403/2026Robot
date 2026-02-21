@@ -53,7 +53,6 @@ import frc.robot.util.RBSIEnum.SwerveType;
 import frc.robot.util.RBSIEnum.VisionType;
 import frc.robot.util.RobotDeviceId;
 import org.photonvision.simulation.SimCameraProperties;
-import swervelib.math.Matter;
 
 /**
  * The Constants class provides a convenient place for teams to hold robot-wide numerical or boolean
@@ -64,6 +63,8 @@ import swervelib.math.Matter;
  * constants are needed, to reduce verbosity.
  */
 public final class Constants {
+  /** Minimal mass descriptor used by physics/sim constants. */
+  public static record Matter(Translation3d location, double massKg) {}
 
   /***************************************************************************/
   /**

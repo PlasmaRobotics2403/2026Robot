@@ -2,6 +2,7 @@ package frc.robot.subsystems;
 
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
+import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.DutyCycleOut;
 import com.ctre.phoenix6.controls.VelocityTorqueCurrentFOC;
@@ -28,9 +29,10 @@ public class IndexerSubsystem extends RBSISubsystem {
   private static final double INDEXER_SUPPLY_CURRENT_LOWER_LIMIT_AMPS = 40.0;
   private static final double INDEXER_SUPPLY_CURRENT_LOWER_TIME_SEC = 1.0;
 
-  private final TalonFX spindexerMotor = new TalonFX(SPINDEXER_CAN_ID, SPINDEXER_CAN_BUS);
+  private final TalonFX spindexerMotor =
+      new TalonFX(SPINDEXER_CAN_ID, new CANBus(SPINDEXER_CAN_BUS));
   private final TalonFX shooterIndexerMotor =
-      new TalonFX(SHOOTER_INDEXER_CAN_ID, SHOOTER_INDEXER_CAN_BUS);
+      new TalonFX(SHOOTER_INDEXER_CAN_ID, new CANBus(SHOOTER_INDEXER_CAN_BUS));
 
   private final DutyCycleOut spindexerDutyCycleRequest = new DutyCycleOut(0.0);
   private final DutyCycleOut shooterIndexerDutyCycleRequest = new DutyCycleOut(0.0);

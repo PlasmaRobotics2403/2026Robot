@@ -1,6 +1,7 @@
 package frc.robot.subsystems;
 
 import com.ctre.phoenix6.BaseStatusSignal;
+import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.MotionMagicVoltage;
@@ -41,7 +42,7 @@ public class TestTurretSubsystem extends RBSISubsystem {
   private double lastDashboardP = TurretConstants.kP;
   private double lastDashboardI = TurretConstants.kI;
   private double lastDashboardD = TurretConstants.kD;
-  private final TalonFX motor = new TalonFX(TALON_ID, CAN_BUS);
+  private final TalonFX motor = new TalonFX(TALON_ID, new CANBus(CAN_BUS));
   private final TalonFXConfiguration config = new TalonFXConfiguration();
 
   private final StatusSignal<Angle> position = motor.getPosition();

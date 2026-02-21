@@ -1,10 +1,13 @@
 package frc.robot.subsystems;
 
+import static edu.wpi.first.units.Units.Inches;
 import static edu.wpi.first.units.Units.Second;
 import static edu.wpi.first.units.Units.Volts;
 
 import com.ctre.phoenix6.SignalLogger;
 import com.ctre.phoenix6.Utils;
+import com.ctre.phoenix6.configs.CANcoderConfiguration;
+import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.swerve.SwerveDrivetrainConstants;
 import com.ctre.phoenix6.swerve.SwerveModuleConstants;
 import com.ctre.phoenix6.swerve.SwerveRequest;
@@ -15,17 +18,20 @@ import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
+import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.Notifier;
-import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Subsystem;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
+import frc.robot.Constants.RobotConstants;
 import frc.robot.generated.TunerConstants.TunerSwerveDrivetrain;
+import frc.robot.utils.simulation.MapleSimSwerveDrivetrain;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -40,36 +46,9 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
   private static final double kSimLoopPeriod = 0.004; // 4 ms
   private Notifier m_simNotifier = null;
   private double m_lastSimTime;
-
-  /**
-   * Simulation-only tuning to make the robot feel less "frictionless" in rotation.
-   *
-   * <p>CTRE's {@code updateSimState()} simulates the drivetrain given a timestep. We can't
-   * (cleanly) inject extra friction torque inside CTRE internals, but we <em>can</em> approximate
-   * rotational friction by slightly reducing the effective timestep when the robot is spinning.
-   *
-   * <p>Bigger values = more damping (slower spin-up and spin-down).
-   */
-  private static final double kSimAngularDamping = 0; // 0 = none, ~0.5-1.5 is typical
-
-  /** Ignore tiny omega so we don't damp controller noise and cause jitter. */
-  private static final double kSimOmegaDeadbandRadPerSec = 0.15;
-
-  /**
-   * Sim-only "stick release" braking.
-   *
-   * <p>When the driver isn't commanding rotation, we aggressively bleed off angular velocity so the
-   * robot stops turning quickly (closer to how a real swerve feels due to scrub + friction).
-   *
-   * <p>Units: 1/second. Bigger = stops faster.
-   */
-  private static final double kSimOmegaBrakeRate = 12.0;
-
-  /** If commanded omega magnitude is below this, we consider it "stick released". */
-  private static final double kSimOmegaCommandDeadbandRadPerSec = 0.25;
-
-  /** Cached last commanded omega (robot-relative) for sim braking. */
-  private volatile double m_lastCommandedOmegaRadPerSec = 0.0;
+  private MapleSimSwerveDrivetrain m_mapleSim = null;
+  private static final edu.wpi.first.units.measure.Distance kSimBumperLengthX = Inches.of(33.0);
+  private static final edu.wpi.first.units.measure.Distance kSimBumperWidthY = Inches.of(33.0);
 
   /* Blue alliance sees forward as 0 degrees (toward red alliance wall) */
   private static final Rotation2d kBlueAlliancePerspectiveRotation = Rotation2d.kZero;
@@ -153,8 +132,9 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
    */
   public CommandSwerveDrivetrain(
       SwerveDrivetrainConstants drivetrainConstants, SwerveModuleConstants<?, ?, ?>... modules) {
-    super(drivetrainConstants, modules);
+    super(drivetrainConstants, regulateModuleConstantsForSimulation(modules));
     if (Utils.isSimulation()) {
+      initializeMapleSim(modules);
       startSimThread();
     }
     configureAutoBuilder();
@@ -175,8 +155,12 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
       SwerveDrivetrainConstants drivetrainConstants,
       double odometryUpdateFrequency,
       SwerveModuleConstants<?, ?, ?>... modules) {
-    super(drivetrainConstants, odometryUpdateFrequency, modules);
+    super(
+        drivetrainConstants,
+        odometryUpdateFrequency,
+        regulateModuleConstantsForSimulation(modules));
     if (Utils.isSimulation()) {
+      initializeMapleSim(modules);
       startSimThread();
     }
     configureAutoBuilder();
@@ -208,11 +192,44 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
         odometryUpdateFrequency,
         odometryStandardDeviation,
         visionStandardDeviation,
-        modules);
+        regulateModuleConstantsForSimulation(modules));
     if (Utils.isSimulation()) {
+      initializeMapleSim(modules);
       startSimThread();
     }
     configureAutoBuilder();
+  }
+
+  @SuppressWarnings("unchecked")
+  private void initializeMapleSim(SwerveModuleConstants<?, ?, ?>... moduleConstants) {
+    final var typedConstants =
+        (SwerveModuleConstants<TalonFXConfiguration, TalonFXConfiguration, CANcoderConfiguration>[])
+            moduleConstants;
+
+    Translation2d[] moduleLocations = new Translation2d[moduleConstants.length];
+    for (int i = 0; i < moduleConstants.length; i++) {
+      moduleLocations[i] =
+          new Translation2d(moduleConstants[i].LocationX, moduleConstants[i].LocationY);
+    }
+
+    m_mapleSim =
+        new MapleSimSwerveDrivetrain(
+            Second.of(kSimLoopPeriod),
+            RobotConstants.kRobotMass,
+            kSimBumperLengthX,
+            kSimBumperWidthY,
+            DCMotor.getKrakenX60Foc(1),
+            DCMotor.getKrakenX60Foc(1),
+            RobotConstants.kWheelCOF,
+            moduleLocations,
+            getPigeon2(),
+            getModules(),
+            typedConstants);
+  }
+
+  private static SwerveModuleConstants<?, ?, ?>[] regulateModuleConstantsForSimulation(
+      SwerveModuleConstants<?, ?, ?>... moduleConstants) {
+    return MapleSimSwerveDrivetrain.regulateModuleConstantsForSimulation(moduleConstants);
   }
 
   private void configureAutoBuilder() {
@@ -252,18 +269,7 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
    * @return Command to run
    */
   public Command applyRequest(Supplier<SwerveRequest> request) {
-    return run(
-        () -> {
-          final var req = request.get();
-          // Track the driver's rotation command so sim can "brake" when the stick is released.
-          // (This is SIM-only behavior; it doesn't affect real robot control.)
-          if (Utils.isSimulation()) {
-            if (req instanceof SwerveRequest.ApplyRobotSpeeds apply) {
-              m_lastCommandedOmegaRadPerSec = apply.Speeds.omegaRadiansPerSecond;
-            }
-          }
-          this.setControl(req);
-        });
+    return run(() -> this.setControl(request.get()));
   }
 
   /**
@@ -311,6 +317,9 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
   }
 
   private void startSimThread() {
+    if (m_mapleSim == null) {
+      return;
+    }
     m_lastSimTime = Utils.getCurrentTimeSeconds();
 
     /* Run simulation at a faster rate so PID gains behave more reasonably */
@@ -318,40 +327,30 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
         new Notifier(
             () -> {
               final double currentTime = Utils.getCurrentTimeSeconds();
-              double deltaTime = currentTime - m_lastSimTime;
+              final double deltaTime = currentTime - m_lastSimTime;
               m_lastSimTime = currentTime;
-
-              // --- Simulation friction approximation (rotation) ---
-              // If rotation feels "too easy" in sim, add damping based on current angular velocity.
-              // This reduces the effective timestep passed into CTRE's sim, which reduces the
-              // integrated motion and helps mimic losses.
-              final double omegaRadPerSec = getState().Speeds.omegaRadiansPerSecond;
-              final double omegaMag = Math.abs(omegaRadPerSec);
-              if (omegaMag > kSimOmegaDeadbandRadPerSec) {
-                final double dampingScale =
-                    1.0 / (1.0 + (omegaMag - kSimOmegaDeadbandRadPerSec) * kSimAngularDamping);
-                deltaTime *= dampingScale;
+              if (deltaTime <= 0.0) {
+                return;
               }
-
-              // If the driver isn't commanding rotation, apply a strong decay to omega.
-              // This is intentionally "more braked" than reality to match expected sim feel.
-              if (Math.abs(m_lastCommandedOmegaRadPerSec) < kSimOmegaCommandDeadbandRadPerSec) {
-                final double brakeScale = Math.exp(-kSimOmegaBrakeRate * deltaTime);
-                final double brakedOmega = omegaRadPerSec * brakeScale;
-                // We can't directly set omega inside CTRE's sim, but we can reduce the integrated
-                // timestep proportionally to how much omega we want to bleed off this tick.
-                // This makes subsequent updateSimState integrate less heading change.
-                final double omegaRatio =
-                    (Math.abs(omegaRadPerSec) < 1e-6)
-                        ? 1.0
-                        : Math.abs(brakedOmega / omegaRadPerSec);
-                deltaTime *= omegaRatio;
-              }
-
-              /* use the measured time delta, get battery voltage from WPILib */
-              updateSimState(deltaTime, RobotController.getBatteryVoltage());
+              m_mapleSim.update();
             });
     m_simNotifier.startPeriodic(kSimLoopPeriod);
+  }
+
+  /** Returns the authoritative physics pose from MapleSim when running in simulation. */
+  public Pose2d getSimulationTruePose() {
+    if (Utils.isSimulation() && m_mapleSim != null) {
+      return m_mapleSim.mapleSimDrive.getSimulatedDriveTrainPose();
+    }
+    return getState().Pose;
+  }
+
+  /** Returns the authoritative robot-relative speeds from MapleSim when running in simulation. */
+  public ChassisSpeeds getSimulationTrueRobotRelativeSpeeds() {
+    if (Utils.isSimulation() && m_mapleSim != null) {
+      return m_mapleSim.mapleSimDrive.getDriveTrainSimulatedChassisSpeedsRobotRelative();
+    }
+    return getState().Speeds;
   }
 
   /**
@@ -364,6 +363,14 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
   @Override
   public void addVisionMeasurement(Pose2d visionRobotPoseMeters, double timestampSeconds) {
     super.addVisionMeasurement(visionRobotPoseMeters, Utils.fpgaToCurrentTime(timestampSeconds));
+  }
+
+  @Override
+  public void resetPose(Pose2d pose) {
+    if (Utils.isSimulation() && m_mapleSim != null) {
+      m_mapleSim.mapleSimDrive.setSimulationWorldPose(pose);
+    }
+    super.resetPose(pose);
   }
 
   /**
