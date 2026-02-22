@@ -6,31 +6,31 @@ import java.util.function.DoubleSupplier;
 
 public class TestMotorCommandTwo extends Command {
 
-  private final TestMotorSubsystemTwo motor;
-  private final DoubleSupplier dutyCycleSupplier;
+    private final TestMotorSubsystemTwo motor;
+    private final DoubleSupplier dutyCycleSupplier;
 
-  public TestMotorCommandTwo(TestMotorSubsystemTwo motor, double dutyCycle) {
-    this(motor, () -> dutyCycle);
-  }
+    public TestMotorCommandTwo(TestMotorSubsystemTwo motor, double dutyCycle) {
+        this(motor, () -> dutyCycle);
+    }
 
-  public TestMotorCommandTwo(TestMotorSubsystemTwo motor, DoubleSupplier dutyCycleSupplier) {
-    this.motor = motor;
-    this.dutyCycleSupplier = dutyCycleSupplier;
-    addRequirements(motor);
-  }
+    public TestMotorCommandTwo(TestMotorSubsystemTwo motor, DoubleSupplier dutyCycleSupplier) {
+        this.motor = motor;
+        this.dutyCycleSupplier = dutyCycleSupplier;
+        addRequirements(motor);
+    }
 
-  @Override
-  public void execute() {
-    motor.setDutyCycle(dutyCycleSupplier.getAsDouble());
-  }
+    @Override
+    public void execute() {
+        motor.setDutyCycle(dutyCycleSupplier.getAsDouble());
+    }
 
-  @Override
-  public void end(boolean interrupted) {
-    motor.stop();
-  }
+    @Override
+    public void end(boolean interrupted) {
+        motor.stop();
+    }
 
-  @Override
-  public boolean isFinished() {
-    return false;
-  }
+    @Override
+    public boolean isFinished() {
+        return false;
+    }
 }

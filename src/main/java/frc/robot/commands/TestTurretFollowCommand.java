@@ -8,98 +8,57 @@ import frc.robot.subsystems.TestTurretSubsystem;
 import frc.robot.subsystems.vision.Vision;
 
 public class TestTurretFollowCommand extends Command {
-  private static final int kTagId = 18;
-  private static final double kMaxStepRadPerCycle = Units.degreesToRadians(5.0);
-  private static final double kMaxAngleRad = Units.degreesToRadians(170.0);
-  private static final double kDeadbandRad = Units.degreesToRadians(0.75);
-  private static final double kSlewRateRadPerSec = Units.degreesToRadians(360.0);
+    private static final double kSlewRateRadPerSec = Units.degreesToRadians(360.0);
 
-  private final TestTurretSubsystem turret;
-  private final Vision vision;
-  private final int cameraIndex;
+    private final TestTurretSubsystem turret;
+    private final Vision vision;
+    private final int cameraIndex;
 
-  private final SlewRateLimiter targetAngleLimiter = new SlewRateLimiter(kSlewRateRadPerSec);
-  private double targetAngleRad = 0.0;
+    private final SlewRateLimiter targetAngleLimiter = new SlewRateLimiter(kSlewRateRadPerSec);
+    private double targetAngleRad = 0.0;
 
-  private double lastFlipTimeSec = -1.0;
-  private static final double kFlipCooldownSec = 1;
+    private double lastFlipTimeSec = -1.0;
+    private static final double kFlipCooldownSec = 1;
 
-  private TurretFlipCommand activeFlipCommand;
-  private boolean flipArmed = true;
+    private TurretFlipCommand activeFlipCommand;
+    private boolean flipArmed = true;
 
-  public TestTurretFollowCommand(TestTurretSubsystem turret, Vision vision, int cameraIndex) {
-    this.turret = turret;
-    this.vision = vision;
-    this.cameraIndex = cameraIndex;
-    addRequirements(turret);
-  }
-
-  public TestTurretFollowCommand(TestTurretSubsystem turret, Vision vision) {
-    this(turret, vision, 0);
-  }
-
-  @Override
-  public void initialize() {
-    targetAngleRad = turret.getPositionRadians();
-    targetAngleLimiter.reset(targetAngleRad);
-    turret.setTargetAngleRadians(targetAngleRad);
-
-    activeFlipCommand = null;
-    lastFlipTimeSec = -1.0;
-    flipArmed = true;
-  }
-
-  @Override
-  public void execute() {
-    // if (activeFlipCommand != null) {
-    //   if (activeFlipCommand.isScheduled()) {
-    //     return;
-    //   }
-    //   activeFlipCommand = null;
-    // }
-    // if (!turret.isAtLimit()) {
-    //   flipArmed = true;
-    // }
-
-    boolean seesTag = vision.seesTag(cameraIndex, kTagId);
-    Rotation2d tx = vision.getTargetXForTag(cameraIndex, kTagId);
-
-    if (!seesTag) {
-      targetAngleRad = turret.getPositionRadians();
-      targetAngleLimiter.reset(targetAngleRad);
-      turret.setTargetAngleRadians(targetAngleRad);
-      return;
+    public TestTurretFollowCommand(TestTurretSubsystem turret, Vision vision, int cameraIndex) {
+        this.turret = turret;
+        this.vision = vision;
+        this.cameraIndex = cameraIndex;
+        addRequirements(turret);
     }
 
-    // double yawErrRad = MathUtil.applyDeadband(tx.getRadians(), kDeadbandRad);
+    public TestTurretFollowCommand(TestTurretSubsystem turret, Vision vision) {
+        this(turret, vision, 0);
+    }
 
-    // double correctionRad = -yawErrRad;
-    // correctionRad = MathUtil.clamp(correctionRad, -kMaxStepRadPerCycle, kMaxStepRadPerCycle);
+    @Override
+    public void initialize() {
+        targetAngleRad = turret.getPositionRadians();
+        targetAngleLimiter.reset(targetAngleRad);
+        turret.setTargetAngleRadians(targetAngleRad);
 
-    // targetAngleRad = MathUtil.clamp(targetAngleRad + correctionRad, -kMaxAngleRad, kMaxAngleRad);
-    // targetAngleRad = targetAngleLimiter.calculate(targetAngleRad);
+        activeFlipCommand = null;
+        lastFlipTimeSec = -1.0;
+        flipArmed = true;
+    }
 
-    // if (flipArmed && turret.isAtLimit()) {
-    //   double now = Timer.getFPGATimestamp();
-    //   if (lastFlipTimeSec < 0.0 || (now - lastFlipTimeSec) > kFlipCooldownSec) {
-    //     lastFlipTimeSec = now;
-    //     activeFlipCommand = new TurretFlipCommand(turret);
-    //     CommandScheduler.getInstance().schedule(activeFlipCommand);
-    //     flipArmed = false;
-    //   }
-    //   return;
-    // }
+    @Override
+    public void execute() {
+        Rotation2d tx = vision.getTargetX(cameraIndex);
 
-    turret.setTargetAngleRadians(turret.getPositionRadians() - tx.getRadians());
-  }
+        turret.setTargetAngleRadians(turret.getPositionRadians() - tx.getRadians());
+    }
 
-  @Override
-  public void end(boolean interrupted) {
-    turret.stop();
-  }
+    @Override
+    public void end(boolean interrupted) {
+        turret.stop();
+    }
 
-  @Override
-  public boolean isFinished() {
-    return false;
-  }
+    @Override
+    public boolean isFinished() {
+        return false;
+    }
 }

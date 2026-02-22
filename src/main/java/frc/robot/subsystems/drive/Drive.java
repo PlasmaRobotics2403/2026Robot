@@ -1,27 +1,25 @@
-// Copyright (c) 2024-2026 Az-FIRST
-// http://github.com/AZ-First
-// Copyright (c) 2021-2026 Littleton Robotics
+// Copyright 2021-2025 FRC 6328
 // http://github.com/Mechanical-Advantage
 //
-// Use of this source code is governed by a BSD
-// license that can be found in the AdvantageKit-License.md file
-// at the root directory of this project.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// version 3 as published by the Free Software Foundation or
+// available in the root directory of this project.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
 
 package frc.robot.subsystems.drive;
 
-import static edu.wpi.first.units.Units.Volts;
-import static frc.robot.subsystems.drive.SwerveConstants.kBLXPosMeters;
-import static frc.robot.subsystems.drive.SwerveConstants.kBLYPosMeters;
-import static frc.robot.subsystems.drive.SwerveConstants.kBRXPosMeters;
-import static frc.robot.subsystems.drive.SwerveConstants.kBRYPosMeters;
-import static frc.robot.subsystems.drive.SwerveConstants.kDriveBaseRadiusMeters;
-import static frc.robot.subsystems.drive.SwerveConstants.kFLXPosMeters;
-import static frc.robot.subsystems.drive.SwerveConstants.kFLYPosMeters;
-import static frc.robot.subsystems.drive.SwerveConstants.kFRXPosMeters;
-import static frc.robot.subsystems.drive.SwerveConstants.kFRYPosMeters;
+import static edu.wpi.first.units.Units.*;
 
-import com.ctre.phoenix6.swerve.SwerveRequest;
+import com.ctre.phoenix6.CANBus;
 import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.config.ModuleConfig;
+import com.pathplanner.lib.config.PIDConstants;
+import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 import com.pathplanner.lib.pathfinding.Pathfinding;
 import com.pathplanner.lib.util.PathPlannerLogging;
@@ -29,575 +27,352 @@ import edu.wpi.first.hal.FRCNetComm.tInstances;
 import edu.wpi.first.hal.FRCNetComm.tResourceType;
 import edu.wpi.first.hal.HAL;
 import edu.wpi.first.math.Matrix;
-import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.math.geometry.Translation3d;
+import edu.wpi.first.math.geometry.Twist2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
-import edu.wpi.first.math.trajectory.TrapezoidProfile;
+import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
-import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.Constants;
-import frc.robot.Constants.AutoConstants;
-import frc.robot.Constants.DrivebaseConstants;
-import frc.robot.Constants.RobotConstants;
+import frc.robot.Constants.Mode;
 import frc.robot.generated.TunerConstants;
-import frc.robot.subsystems.CommandSwerveDrivetrain;
-import frc.robot.subsystems.imu.ImuIO;
+import frc.robot.subsystems.vision.Vision;
 import frc.robot.util.LocalADStarAK;
-import frc.robot.util.RBSIEnum.Mode;
-import java.util.Arrays;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
+import org.ironmaple.simulation.drivesims.COTS;
+import org.ironmaple.simulation.drivesims.configs.DriveTrainSimulationConfig;
+import org.ironmaple.simulation.drivesims.configs.SwerveModuleSimulationConfig;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 
-public class Drive extends SubsystemBase {
+public class Drive extends SubsystemBase implements Vision.VisionConsumer {
+    // TunerConstants doesn't include these constants, so they are declared locally
+    static final double ODOMETRY_FREQUENCY =
+            new CANBus(TunerConstants.DrivetrainConstants.CANBusName).isNetworkFD() ? 250.0 : 100.0;
+    public static final double DRIVE_BASE_RADIUS = Math.max(
+            Math.max(
+                    Math.hypot(TunerConstants.FrontLeft.LocationX, TunerConstants.FrontLeft.LocationY),
+                    Math.hypot(TunerConstants.FrontRight.LocationX, TunerConstants.FrontRight.LocationY)),
+            Math.max(
+                    Math.hypot(TunerConstants.BackLeft.LocationX, TunerConstants.BackLeft.LocationY),
+                    Math.hypot(TunerConstants.BackRight.LocationX, TunerConstants.BackRight.LocationY)));
 
-  static final Lock odometryLock = new ReentrantLock();
-  private final ImuIO imuIO;
-  private final ImuIO.ImuIOInputs imuInputs = new ImuIO.ImuIOInputs();
-  private final Module[] modules = new Module[4]; // FL, FR, BL, BR
-  private final SysIdRoutine sysId;
-  private final Alert gyroDisconnectedAlert =
-      new Alert("Disconnected gyro, using kinematics as fallback.", AlertType.kError);
+    // PathPlanner config constants
+    private static final double ROBOT_MASS_KG = 74.088;
+    private static final double ROBOT_MOI = 6.883;
+    private static final double WHEEL_COF = 1.2;
+    private static final RobotConfig PP_CONFIG = new RobotConfig(
+            ROBOT_MASS_KG,
+            ROBOT_MOI,
+            new ModuleConfig(
+                    TunerConstants.FrontLeft.WheelRadius,
+                    TunerConstants.kSpeedAt12Volts.in(MetersPerSecond),
+                    WHEEL_COF,
+                    DCMotor.getKrakenX60Foc(1).withReduction(TunerConstants.FrontLeft.DriveMotorGearRatio),
+                    TunerConstants.FrontLeft.SlipCurrent,
+                    1),
+            getModuleTranslations());
 
-  private SwerveDriveKinematics kinematics = new SwerveDriveKinematics(getModuleTranslations());
-  private Rotation2d rawGyroRotation = imuInputs.yawPosition;
-  private SwerveModulePosition[] lastModulePositions = // For delta tracking
-      new SwerveModulePosition[] {
-        new SwerveModulePosition(),
-        new SwerveModulePosition(),
-        new SwerveModulePosition(),
-        new SwerveModulePosition()
-      };
-  private SwerveDrivePoseEstimator m_PoseEstimator =
-      new SwerveDrivePoseEstimator(kinematics, rawGyroRotation, lastModulePositions, Pose2d.kZero);
+    private static DriveTrainSimulationConfig mapleSimConfig = null;
 
-  private final ProfiledPIDController thetaController =
-      new ProfiledPIDController(
-          DrivebaseConstants.kPTheta,
-          DrivebaseConstants.kITheta,
-          DrivebaseConstants.kDTheta,
-          new TrapezoidProfile.Constraints(
-              DrivebaseConstants.kMaxAngularSpeed, DrivebaseConstants.kMaxAngularAccel));
+    public static DriveTrainSimulationConfig getMapleSimConfig() {
+        if (mapleSimConfig != null) return mapleSimConfig;
 
-  private DriveSimPhysics simPhysics;
-  private CommandSwerveDrivetrain simMapleDrive;
-  private final SwerveRequest.ApplyRobotSpeeds simApplyRobotSpeeds =
-      new SwerveRequest.ApplyRobotSpeeds();
-  private final BumpZoneModel bumpZoneModel = new BumpZoneModel();
-
-  // Constructor
-  public Drive(ImuIO imuIO) {
-    this.imuIO = imuIO;
-
-    if (Constants.getMode() == Mode.REAL) {
-
-      // This codebase is configured for an all-CTRE Phoenix 6 swerve.
-      for (int i = 0; i < 4; i++) {
-        modules[i] = new Module(new ModuleIOTalonFX(i), i);
-      }
-      // Start odometry thread (for the real robot)
-
-      PhoenixOdometryThread.getInstance().start();
-
-    } else {
-
-      // If SIM, just order up some SIM modules!
-      for (int i = 0; i < 4; i++) {
-        modules[i] = new Module(new ModuleIOSim(), i);
-      }
-
-      // Use CTRE generated drivetrain + MapleSim as authoritative SIM physics.
-      simMapleDrive = TunerConstants.createDrivetrain();
-      simMapleDrive.resetPose(new Pose2d(2.0, 2.0, Rotation2d.kZero));
-
-      // Load the physics simulator
-      simPhysics =
-          new DriveSimPhysics(
-              kinematics,
-              RobotConstants.kRobotMOI, // kg m^2
-              RobotConstants.kMaxWheelTorque); // Nm
-      simPhysics.reset(new Pose2d(2.0, 2.0, Rotation2d.kZero));
+        return mapleSimConfig = DriveTrainSimulationConfig.Default()
+                .withRobotMass(Kilograms.of(ROBOT_MASS_KG))
+                .withCustomModuleTranslations(getModuleTranslations())
+                .withGyro(COTS.ofPigeon2())
+                .withSwerveModule(new SwerveModuleSimulationConfig(
+                        DCMotor.getKrakenX60(1),
+                        DCMotor.getFalcon500(1),
+                        TunerConstants.FrontLeft.DriveMotorGearRatio,
+                        TunerConstants.FrontLeft.SteerMotorGearRatio,
+                        Volts.of(TunerConstants.FrontLeft.DriveFrictionVoltage),
+                        Volts.of(TunerConstants.FrontLeft.SteerFrictionVoltage),
+                        Inches.of(2),
+                        KilogramSquareMeters.of(TunerConstants.FrontLeft.SteerInertia),
+                        WHEEL_COF));
     }
 
-    // Usage reporting for swerve template
-    HAL.report(tResourceType.kResourceType_RobotDrive, tInstances.kRobotDriveSwerve_AdvantageKit);
+    static final Lock odometryLock = new ReentrantLock();
+    private final GyroIO gyroIO;
+    private final GyroIOInputsAutoLogged gyroInputs = new GyroIOInputsAutoLogged();
+    private final Module[] modules = new Module[4]; // FL, FR, BL, BR
+    private final SysIdRoutine sysId;
+    private final Alert gyroDisconnectedAlert =
+            new Alert("Disconnected gyro, using kinematics as fallback.", AlertType.kError);
 
-    // Configure Autonomous Path Building for PathPlanner based on `AutoType`
-    switch (Constants.getAutoType()) {
-      case PATHPLANNER:
-        try {
-          // Configure AutoBuilder for PathPlanner
-          AutoBuilder.configure(
-              this::getPose,
-              this::resetPose,
-              this::getChassisSpeeds,
-              (speeds, feedforwards) -> runVelocity(speeds),
-              new PPHolonomicDriveController(AutoConstants.kPPdrivePID, AutoConstants.kPPsteerPID),
-              AutoConstants.kPathPlannerConfig,
-              () -> DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red,
-              this);
-        } catch (Exception e) {
-          DriverStation.reportError(
-              "Failed to load PathPlanner config and configure AutoBuilder", e.getStackTrace());
-        }
+    private final SwerveDriveKinematics kinematics = new SwerveDriveKinematics(getModuleTranslations());
+    private Rotation2d rawGyroRotation = new Rotation2d();
+    private final SwerveModulePosition[] lastModulePositions = // For delta tracking
+            new SwerveModulePosition[] {
+                new SwerveModulePosition(),
+                new SwerveModulePosition(),
+                new SwerveModulePosition(),
+                new SwerveModulePosition()
+            };
+    private final SwerveDrivePoseEstimator poseEstimator =
+            new SwerveDrivePoseEstimator(kinematics, rawGyroRotation, lastModulePositions, new Pose2d());
+    private final Consumer<Pose2d> resetSimulationPoseCallBack;
+
+    public Drive(
+            GyroIO gyroIO,
+            ModuleIO flModuleIO,
+            ModuleIO frModuleIO,
+            ModuleIO blModuleIO,
+            ModuleIO brModuleIO,
+            Consumer<Pose2d> resetSimulationPoseCallBack) {
+        this.gyroIO = gyroIO;
+        this.resetSimulationPoseCallBack = resetSimulationPoseCallBack;
+        modules[0] = new Module(flModuleIO, 0, TunerConstants.FrontLeft);
+        modules[1] = new Module(frModuleIO, 1, TunerConstants.FrontRight);
+        modules[2] = new Module(blModuleIO, 2, TunerConstants.BackLeft);
+        modules[3] = new Module(brModuleIO, 3, TunerConstants.BackRight);
+
+        // Usage reporting for swerve template
+        HAL.report(tResourceType.kResourceType_RobotDrive, tInstances.kRobotDriveSwerve_AdvantageKit);
+
+        // Start odometry thread
+        PhoenixOdometryThread.getInstance().start();
+
+        // Configure AutoBuilder for PathPlanner
+        AutoBuilder.configure(
+                this::getPose,
+                this::resetOdometry,
+                this::getChassisSpeeds,
+                this::runVelocity,
+                new PPHolonomicDriveController(new PIDConstants(5.0, 0.0, 0.0), new PIDConstants(5.0, 0.0, 0.0)),
+                PP_CONFIG,
+                () -> DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red,
+                this);
         Pathfinding.setPathfinder(new LocalADStarAK());
-        PathPlannerLogging.setLogActivePathCallback(
-            (activePath) -> {
-              Logger.recordOutput("Odometry/Trajectory", activePath.toArray(new Pose2d[0]));
-            });
-        PathPlannerLogging.setLogTargetPoseCallback(
-            (targetPose) -> {
-              Logger.recordOutput("Odometry/TrajectorySetpoint", targetPose);
-            });
-        break;
-      default:
+        PathPlannerLogging.setLogActivePathCallback((activePath) -> {
+            Logger.recordOutput("Odometry/Trajectory", activePath.toArray(new Pose2d[activePath.size()]));
+        });
+        PathPlannerLogging.setLogTargetPoseCallback((targetPose) -> {
+            Logger.recordOutput("Odometry/TrajectorySetpoint", targetPose);
+        });
+
+        // Configure SysId
+        sysId = new SysIdRoutine(
+                new SysIdRoutine.Config(
+                        null, null, null, (state) -> Logger.recordOutput("Drive/SysIdState", state.toString())),
+                new SysIdRoutine.Mechanism((voltage) -> runCharacterization(voltage.in(Volts)), null, this));
     }
 
-    // Configure SysId
-    sysId =
-        new SysIdRoutine(
-            new SysIdRoutine.Config(
-                null,
-                null,
-                null,
-                (state) -> Logger.recordOutput("Drive/SysIdState", state.toString())),
-            new SysIdRoutine.Mechanism(
-                (voltage) -> runCharacterization(voltage.in(Volts)), null, this));
-  }
-
-  /** Periodic function that is called each robot cycle by the command scheduler */
-  @Override
-  public void periodic() {
-    if (Constants.getMode() == Mode.SIM && simMapleDrive != null) {
-      // In SIM, MapleSim is authoritative for state/pose.
-      // Still publish module inputs for debugging dashboards.
-      for (var module : modules) {
-        module.periodic();
-      }
-      return;
-    }
-
-    odometryLock.lock();
-    try {
-
-      // Stop modules & log empty setpoint states if disabled
-      if (DriverStation.isDisabled()) {
+    @Override
+    public void periodic() {
+        odometryLock.lock(); // Prevents odometry updates while reading data
+        gyroIO.updateInputs(gyroInputs);
+        Logger.processInputs("Drive/Gyro", gyroInputs);
         for (var module : modules) {
-          module.stop();
-          Logger.recordOutput("SwerveStates/Setpoints", new SwerveModuleState[] {});
-          Logger.recordOutput("SwerveStates/SetpointsOptimized", new SwerveModuleState[] {});
+            module.periodic();
         }
-      }
+        odometryLock.unlock();
 
-      // Update the IMU inputs -- logging happens automatically
-      imuIO.updateInputs(imuInputs);
+        // Stop moving when disabled
+        if (DriverStation.isDisabled()) {
+            for (var module : modules) {
+                module.stop();
+            }
+        }
 
-      // Feed historical samples into odometry if REAL robot
-      if (Constants.getMode() != Mode.SIM) {
-        double[] sampleTimestamps = modules[0].getOdometryTimestamps();
+        // Log empty setpoint states when disabled
+        if (DriverStation.isDisabled()) {
+            Logger.recordOutput("SwerveStates/Setpoints", new SwerveModuleState[] {});
+            Logger.recordOutput("SwerveStates/SetpointsOptimized", new SwerveModuleState[] {});
+        }
+
+        // Update odometry
+        double[] sampleTimestamps = modules[0].getOdometryTimestamps(); // All signals are sampled together
         int sampleCount = sampleTimestamps.length;
-
         for (int i = 0; i < sampleCount; i++) {
-          // Read wheel positions and deltas from each module
-          SwerveModulePosition[] modulePositions = new SwerveModulePosition[4];
+            // Read wheel positions and deltas from each module
+            SwerveModulePosition[] modulePositions = new SwerveModulePosition[4];
+            SwerveModulePosition[] moduleDeltas = new SwerveModulePosition[4];
+            for (int moduleIndex = 0; moduleIndex < 4; moduleIndex++) {
+                modulePositions[moduleIndex] = modules[moduleIndex].getOdometryPositions()[i];
+                moduleDeltas[moduleIndex] = new SwerveModulePosition(
+                        modulePositions[moduleIndex].distanceMeters - lastModulePositions[moduleIndex].distanceMeters,
+                        modulePositions[moduleIndex].angle);
+                lastModulePositions[moduleIndex] = modulePositions[moduleIndex];
+            }
 
-          for (int moduleIndex = 0; moduleIndex < 4; moduleIndex++) {
-            modulePositions[moduleIndex] = modules[moduleIndex].getOdometryPositions()[i];
-            lastModulePositions[moduleIndex] = modulePositions[moduleIndex];
-          }
+            // Update gyro angle
+            if (gyroInputs.connected) {
+                // Use the real gyro angle
+                rawGyroRotation = gyroInputs.odometryYawPositions[i];
+            } else {
+                // Use the angle delta from the kinematics and module deltas
+                Twist2d twist = kinematics.toTwist2d(moduleDeltas);
+                rawGyroRotation = rawGyroRotation.plus(new Rotation2d(twist.dtheta));
+            }
 
-          // Update gyro angle for odometry
-          Rotation2d yaw =
-              imuInputs.connected && imuInputs.odometryYawPositions.length > i
-                  ? imuInputs.odometryYawPositions[i]
-                  : imuInputs.yawPosition;
-
-          // Apply to pose estimator
-          m_PoseEstimator.updateWithTime(sampleTimestamps[i], yaw, modulePositions);
+            // Apply update
+            poseEstimator.updateWithTime(sampleTimestamps[i], rawGyroRotation, modulePositions);
         }
-        Logger.recordOutput("Drive/Pose", m_PoseEstimator.getEstimatedPosition());
-      }
 
-      // Module periodic updates
-      for (var module : modules) {
-        module.periodic();
-      }
-
-    } finally {
-      odometryLock.unlock();
+        // Update gyro alert
+        gyroDisconnectedAlert.set(!gyroInputs.connected && Constants.currentMode != Mode.SIM);
     }
 
-    // Update gyro/IMU alert
-    gyroDisconnectedAlert.set(!imuInputs.connected && Constants.getMode() != Mode.SIM);
-  }
+    /**
+     * Runs the drive at the desired velocity.
+     *
+     * @param speeds Speeds in meters/sec
+     */
+    public void runVelocity(ChassisSpeeds speeds) {
+        // Calculate module setpoints
+        speeds = ChassisSpeeds.discretize(speeds, 0.02);
+        SwerveModuleState[] setpointStates = kinematics.toSwerveModuleStates(speeds);
+        SwerveDriveKinematics.desaturateWheelSpeeds(setpointStates, TunerConstants.kSpeedAt12Volts);
 
-  /** Simulation Periodic Method */
-  @Override
-  public void simulationPeriodic() {
-    if (simMapleDrive != null) {
-      Logger.recordOutput("Sim/Pose", simMapleDrive.getSimulationTruePose());
-      Logger.recordOutput("Sim/Yaw", simMapleDrive.getSimulationTruePose().getRotation());
-      Logger.recordOutput("Sim/OdometryPose", simMapleDrive.getState().Pose);
-      return;
+        // Log unoptimized setpoints and setpoint speeds
+        Logger.recordOutput("SwerveStates/Setpoints", setpointStates);
+        Logger.recordOutput("SwerveChassisSpeeds/Setpoints", speeds);
+
+        // Send setpoints to modules
+        for (int i = 0; i < 4; i++) {
+            modules[i].runSetpoint(setpointStates[i]);
+        }
+
+        // Log optimized setpoints (runSetpoint mutates each state)
+        Logger.recordOutput("SwerveStates/SetpointsOptimized", setpointStates);
     }
 
-    final double dt = Constants.loopPeriodSecs;
-
-    // 1) Advance module wheel physics
-    for (Module module : modules) {
-      module.simulationPeriodic();
+    /** Runs the drive in a straight line with the specified drive output. */
+    public void runCharacterization(double output) {
+        for (int i = 0; i < 4; i++) {
+            modules[i].runCharacterization(output);
+        }
     }
 
-    // 2) Get module states from modules (authoritative)
-    SwerveModuleState[] moduleStates =
-        Arrays.stream(modules).map(Module::getState).toArray(SwerveModuleState[]::new);
-
-    // 3) Update SIM physics (linear + angular)
-    simPhysics.update(moduleStates, dt);
-
-    // 4) Feed IMU from authoritative physics
-    imuIO.simulationSetYaw(simPhysics.getYaw());
-    imuIO.simulationSetOmega(simPhysics.getOmegaRadPerSec());
-    imuIO.setLinearAccel(
-        new Translation3d(
-            simPhysics.getLinearAccel().getX(), simPhysics.getLinearAccel().getY(), 0.0));
-
-    // 5) Feed PoseEstimator with authoritative yaw and module positions
-    SwerveModulePosition[] modulePositions =
-        Arrays.stream(modules).map(Module::getPosition).toArray(SwerveModulePosition[]::new);
-
-    m_PoseEstimator.resetPosition(
-        simPhysics.getYaw(), // gyro reading (authoritative)
-        modulePositions, // wheel positions
-        simPhysics.getPose() // pose is authoritative
-        );
-
-    // 6) Optional: inject vision measurement in SIM
-    if (simulatedVisionAvailable) {
-      Pose2d visionPose = getSimulatedVisionPose();
-      double visionTimestamp = Timer.getFPGATimestamp();
-      var visionStdDevs = getSimulatedVisionStdDevs();
-      m_PoseEstimator.addVisionMeasurement(visionPose, visionTimestamp, visionStdDevs);
+    /** Stops the drive. */
+    public void stop() {
+        runVelocity(new ChassisSpeeds());
     }
 
-    // 7) Logging
-    Logger.recordOutput("Sim/Pose", simPhysics.getPose());
-    Logger.recordOutput("Sim/Yaw", simPhysics.getYaw());
-    Logger.recordOutput("Sim/LinearAccel", simPhysics.getLinearAccel());
-  }
-
-  /** Drive Base Action Functions ****************************************** */
-
-  /**
-   * Sets the swerve drive motors to brake/coast mode.
-   *
-   * @param brake True to set motors to brake mode, false for coast.
-   */
-  public void setMotorBrake(boolean brake) {
-    {
-      for (Module swerveModule : modules) {
-        swerveModule.setBrakeMode(brake);
-      }
-    }
-  }
-
-  /** Stops the drive. */
-  public void stop() {
-    runVelocity(new ChassisSpeeds());
-  }
-
-  /**
-   * Stops the drive and turns the modules to an X arrangement to resist movement. The modules will
-   * return to their normal orientations the next time a nonzero velocity is requested.
-   */
-  public void stopWithX() {
-    Rotation2d[] headings = new Rotation2d[4];
-    for (int i = 0; i < 4; i++) {
-      headings[i] = getModuleTranslations()[i].getAngle();
-    }
-    kinematics.resetHeadings(headings);
-    stop();
-  }
-
-  /**
-   * Runs the drive at the desired velocity.
-   *
-   * @param speeds Speeds in meters/sec
-   */
-  public void runVelocity(ChassisSpeeds speeds) {
-    if (simMapleDrive != null) {
-      var bumpResult = bumpZoneModel.apply(speeds, getPose(), Constants.loopPeriodSecs);
-      Logger.recordOutput("BumpSim/InZone", bumpResult.inZone);
-      Logger.recordOutput("BumpSim/Zone", bumpResult.zoneName);
-      Logger.recordOutput("BumpSim/State", bumpResult.phase.toString());
-      Logger.recordOutput("BumpSim/Progress", bumpResult.progress);
-      Logger.recordOutput("BumpSim/SpeedScale", bumpResult.speedScale);
-      Logger.recordOutput("BumpSim/HeadingErrorDeg", bumpResult.headingErrorDeg);
-      Logger.recordOutput(
-          "BumpSim/ShapedSpeeds",
-          new double[] {
-            bumpResult.speeds.vxMetersPerSecond,
-            bumpResult.speeds.vyMetersPerSecond,
-            bumpResult.speeds.omegaRadiansPerSecond
-          });
-      simMapleDrive.setControl(simApplyRobotSpeeds.withSpeeds(bumpResult.speeds));
-      return;
+    /**
+     * Stops the drive and turns the modules to an X arrangement to resist movement. The modules will return to their
+     * normal orientations the next time a nonzero velocity is requested.
+     */
+    public void stopWithX() {
+        Rotation2d[] headings = new Rotation2d[4];
+        for (int i = 0; i < 4; i++) {
+            headings[i] = getModuleTranslations()[i].getAngle();
+        }
+        kinematics.resetHeadings(headings);
+        stop();
     }
 
-    // Calculate module setpoints
-    ChassisSpeeds discreteSpeeds = ChassisSpeeds.discretize(speeds, Constants.loopPeriodSecs);
-    SwerveModuleState[] setpointStates = kinematics.toSwerveModuleStates(discreteSpeeds);
-    SwerveDriveKinematics.desaturateWheelSpeeds(setpointStates, DrivebaseConstants.kMaxLinearSpeed);
-
-    // Log unoptimized setpoints and setpoint speeds
-    Logger.recordOutput("SwerveStates/Setpoints", setpointStates);
-    Logger.recordOutput("SwerveChassisSpeeds/Setpoints", discreteSpeeds);
-
-    // Send setpoints to modules
-    for (int i = 0; i < 4; i++) {
-      modules[i].runSetpoint(setpointStates[i]);
+    /** Returns a command to run a quasistatic test in the specified direction. */
+    public Command sysIdQuasistatic(SysIdRoutine.Direction direction) {
+        return run(() -> runCharacterization(0.0)).withTimeout(1.0).andThen(sysId.quasistatic(direction));
     }
 
-    // Log optimized setpoints (runSetpoint mutates each state)
-    Logger.recordOutput("SwerveStates/SetpointsOptimized", setpointStates);
-  }
-
-  /** Runs the drive in a straight line with the specified drive output. */
-  public void runCharacterization(double output) {
-    for (int i = 0; i < 4; i++) {
-      modules[i].runCharacterization(output);
+    /** Returns a command to run a dynamic test in the specified direction. */
+    public Command sysIdDynamic(SysIdRoutine.Direction direction) {
+        return run(() -> runCharacterization(0.0)).withTimeout(1.0).andThen(sysId.dynamic(direction));
     }
-  }
 
-  /**
-   * Reset the heading ProfiledPIDController
-   *
-   * <p>TODO: CALL THIS FUNCTION!!!
-   *
-   * <p>Call this when: (A) robot is disabled, (B) gyro is zeroed, (C) autonomous starts
-   */
-  public void resetHeadingController() {
-    thetaController.reset(getHeading().getRadians());
-  }
-
-  /** SysId Characterization Routines ************************************** */
-
-  /** Returns a command to run a quasistatic test in the specified direction. */
-  public Command sysIdQuasistatic(SysIdRoutine.Direction direction) {
-    return run(() -> runCharacterization(0.0))
-        .withTimeout(1.0)
-        .andThen(sysId.quasistatic(direction));
-  }
-
-  /** Returns a command to run a dynamic test in the specified direction. */
-  public Command sysIdDynamic(SysIdRoutine.Direction direction) {
-    return run(() -> runCharacterization(0.0)).withTimeout(1.0).andThen(sysId.dynamic(direction));
-  }
-
-  /** Getter Functions ***************************************************** */
-
-  /** Returns the module states (turn angles and drive velocities) for all of the modules. */
-  @AutoLogOutput(key = "SwerveStates/Measured")
-  private SwerveModuleState[] getModuleStates() {
-    SwerveModuleState[] states = new SwerveModuleState[4];
-    for (int i = 0; i < 4; i++) {
-      states[i] = modules[i].getState();
+    /** Returns the module states (turn angles and drive velocities) for all of the modules. */
+    @AutoLogOutput(key = "SwerveStates/Measured")
+    private SwerveModuleState[] getModuleStates() {
+        SwerveModuleState[] states = new SwerveModuleState[4];
+        for (int i = 0; i < 4; i++) {
+            states[i] = modules[i].getState();
+        }
+        return states;
     }
-    return states;
-  }
 
-  /** Returns the module positions (turn angles and drive positions) for all of the modules. */
-  @AutoLogOutput(key = "SwerveStates/Positions")
-  private SwerveModulePosition[] getModulePositions() {
-    SwerveModulePosition[] states = new SwerveModulePosition[4];
-    for (int i = 0; i < 4; i++) {
-      states[i] = modules[i].getPosition();
+    /** Returns the module positions (turn angles and drive positions) for all of the modules. */
+    private SwerveModulePosition[] getModulePositions() {
+        SwerveModulePosition[] states = new SwerveModulePosition[4];
+        for (int i = 0; i < 4; i++) {
+            states[i] = modules[i].getPosition();
+        }
+        return states;
     }
-    return states;
-  }
 
-  /** Returns the measured chassis speeds of the robot. */
-  @AutoLogOutput(key = "SwerveChassisSpeeds/Measured")
-  public ChassisSpeeds getChassisSpeeds() {
-    if (simMapleDrive != null) {
-      return simMapleDrive.getSimulationTrueRobotRelativeSpeeds();
+    /** Returns the measured chassis speeds of the robot. */
+    @AutoLogOutput(key = "SwerveChassisSpeeds/Measured")
+    private ChassisSpeeds getChassisSpeeds() {
+        return kinematics.toChassisSpeeds(getModuleStates());
     }
-    return kinematics.toChassisSpeeds(getModuleStates());
-  }
 
-  /** Returns the current odometry pose. */
-  @AutoLogOutput(key = "Odometry/Robot")
-  public Pose2d getPose() {
-    if (simMapleDrive != null) {
-      return simMapleDrive.getSimulationTruePose();
+    /** Returns the position of each module in radians. */
+    public double[] getWheelRadiusCharacterizationPositions() {
+        double[] values = new double[4];
+        for (int i = 0; i < 4; i++) {
+            values[i] = modules[i].getWheelRadiusCharacterizationPosition();
+        }
+        return values;
     }
-    if (Constants.getMode() == Mode.SIM) {
-      return simPhysics.getPose();
+
+    /** Returns the average velocity of the modules in rotations/sec (Phoenix native units). */
+    public double getFFCharacterizationVelocity() {
+        double output = 0.0;
+        for (int i = 0; i < 4; i++) {
+            output += modules[i].getFFCharacterizationVelocity() / 4.0;
+        }
+        return output;
     }
-    return m_PoseEstimator.getEstimatedPosition();
-  }
 
-  /** Returns the current odometry rotation. */
-  @AutoLogOutput(key = "Odometry/Yaw")
-  public Rotation2d getHeading() {
-    if (simMapleDrive != null) {
-      return simMapleDrive.getSimulationTruePose().getRotation();
+    /** Returns the current odometry pose. */
+    @AutoLogOutput(key = "Odometry/Robot")
+    public Pose2d getPose() {
+        return poseEstimator.getEstimatedPosition();
     }
-    if (Constants.getMode() == Mode.SIM) {
-      return simPhysics.getYaw();
+
+    /** Returns the current odometry rotation. */
+    public Rotation2d getRotation() {
+        return getPose().getRotation();
     }
-    return imuInputs.yawPosition;
-  }
 
-  /** Returns an array of module translations. */
-  public static Translation2d[] getModuleTranslations() {
-    return new Translation2d[] {
-      new Translation2d(kFLXPosMeters, kFLYPosMeters),
-      new Translation2d(kFRXPosMeters, kFRYPosMeters),
-      new Translation2d(kBLXPosMeters, kBLYPosMeters),
-      new Translation2d(kBRXPosMeters, kBRYPosMeters)
-    };
-  }
-
-  /** Returns the position of each module in radians. */
-  public double[] getWheelRadiusCharacterizationPositions() {
-    double[] values = new double[4];
-    for (int i = 0; i < 4; i++) {
-      values[i] = modules[i].getWheelRadiusCharacterizationPosition();
+    /** Resets the current odometry pose. */
+    public void resetOdometry(Pose2d pose) {
+        resetSimulationPoseCallBack.accept(pose);
+        poseEstimator.resetPosition(rawGyroRotation, getModulePositions(), pose);
     }
-    return values;
-  }
 
-  /**
-   * Returns the measured chassis speeds in FIELD coordinates.
-   *
-   * <p>+X = field forward +Y = field left CCW+ = counterclockwise
-   */
-  @AutoLogOutput(key = "SwerveChassisSpeeds/FieldMeasured")
-  public ChassisSpeeds getFieldRelativeSpeeds() {
-    // Robot-relative measured speeds from modules
-    ChassisSpeeds robotRelative = getChassisSpeeds();
-
-    // Convert to field-relative using authoritative yaw
-    return ChassisSpeeds.fromRobotRelativeSpeeds(robotRelative, getHeading());
-  }
-
-  /**
-   * Returns the FIELD-relative linear velocity of the robot's center.
-   *
-   * <p>+X = field forward +Y = field left
-   */
-  @AutoLogOutput(key = "Drive/FieldLinearVelocity")
-  public Translation2d getFieldLinearVelocity() {
-    ChassisSpeeds fieldSpeeds = getFieldRelativeSpeeds();
-    return new Translation2d(fieldSpeeds.vxMetersPerSecond, fieldSpeeds.vyMetersPerSecond);
-  }
-
-  /** Returns the average velocity of the modules in rotations/sec (Phoenix native units). */
-  public double getFFCharacterizationVelocity() {
-    double output = 0.0;
-    for (int i = 0; i < 4; i++) {
-      output += modules[i].getFFCharacterizationVelocity() / 4.0;
+    /** Adds a new timestamped vision measurement. */
+    @Override
+    public void accept(Pose2d visionRobotPoseMeters, double timestampSeconds, Matrix<N3, N1> visionMeasurementStdDevs) {
+        poseEstimator.addVisionMeasurement(visionRobotPoseMeters, timestampSeconds, visionMeasurementStdDevs);
     }
-    return output;
-  }
 
-  /** Returns the maximum linear speed in meters per sec. */
-  public double getMaxLinearSpeedMetersPerSec() {
-    return DrivebaseConstants.kMaxLinearSpeed;
-  }
-
-  /** Returns the maximum angular speed in radians per sec. */
-  public double getMaxAngularSpeedRadPerSec() {
-    return getMaxLinearSpeedMetersPerSec() / kDriveBaseRadiusMeters;
-  }
-
-  /* Setter Functions ****************************************************** */
-
-  /** Resets the current odometry pose. */
-  public void resetPose(Pose2d pose) {
-    if (simMapleDrive != null) {
-      simMapleDrive.resetPose(pose);
-      return;
+    /** Returns the maximum linear speed in meters per sec. */
+    public double getMaxLinearSpeedMetersPerSec() {
+        return TunerConstants.kSpeedAt12Volts.in(MetersPerSecond);
     }
-    m_PoseEstimator.resetPosition(rawGyroRotation, getModulePositions(), pose);
-  }
 
-  /** Zeros the gyro based on alliance color */
-  public void zeroHeadingForAlliance() {
-    imuIO.zeroYaw(
-        DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Blue
-            ? Rotation2d.kZero
-            : Rotation2d.k180deg);
-  }
+    /** Returns the maximum angular speed in radians per sec. */
+    public double getMaxAngularSpeedRadPerSec() {
+        return getMaxLinearSpeedMetersPerSec() / DRIVE_BASE_RADIUS;
+    }
 
-  /** Zeros the heading */
-  public void zeroHeading() {
-    imuIO.zeroYaw(Rotation2d.kZero);
-  }
-
-  /** Adds a new timestamped vision measurement. */
-  public void addVisionMeasurement(
-      Pose2d visionRobotPoseMeters,
-      double timestampSeconds,
-      Matrix<N3, N1> visionMeasurementStdDevs) {
-    m_PoseEstimator.addVisionMeasurement(
-        visionRobotPoseMeters, timestampSeconds, visionMeasurementStdDevs);
-  }
-
-  // ---------------- SIM VISION ----------------
-
-  // Vision measurement enabled in simulation
-  private boolean simulatedVisionAvailable = true;
-
-  // Maximum simulated noise in meters/radians
-  private static final double SIM_VISION_POS_NOISE_M = 0.02; // +/- 2cm
-  private static final double SIM_VISION_YAW_NOISE_RAD = Math.toRadians(2); // +/- 2 degrees
-
-  /**
-   * Returns a simulated Pose2d for vision in field coordinates. Adds a small random jitter to
-   * simulate measurement error.
-   */
-  private Pose2d getSimulatedVisionPose() {
-    Pose2d truePose = simPhysics.getPose(); // authoritative pose
-
-    // Add small random noise
-    double dx = (Math.random() * 2 - 1) * SIM_VISION_POS_NOISE_M;
-    double dy = (Math.random() * 2 - 1) * SIM_VISION_POS_NOISE_M;
-    double dTheta = (Math.random() * 2 - 1) * SIM_VISION_YAW_NOISE_RAD;
-
-    return new Pose2d(
-        truePose.getX() + dx,
-        truePose.getY() + dy,
-        truePose.getRotation().plus(new Rotation2d(dTheta)));
-  }
-
-  /**
-   * Returns the standard deviations for the simulated vision measurement. These values are used by
-   * the PoseEstimator to weight vision updates.
-   */
-  private edu.wpi.first.math.Matrix<N3, N1> getSimulatedVisionStdDevs() {
-    edu.wpi.first.math.Matrix<N3, N1> stdDevs =
-        new edu.wpi.first.math.Matrix<>(N3.instance, N1.instance);
-    stdDevs.set(0, 0, 0.02); // X standard deviation (meters)
-    stdDevs.set(1, 0, 0.02); // Y standard deviation (meters)
-    stdDevs.set(2, 0, Math.toRadians(2)); // rotation standard deviation (radians)
-    return stdDevs;
-  }
+    /** Returns an array of module translations. */
+    public static Translation2d[] getModuleTranslations() {
+        return new Translation2d[] {
+            new Translation2d(TunerConstants.FrontLeft.LocationX, TunerConstants.FrontLeft.LocationY),
+            new Translation2d(TunerConstants.FrontRight.LocationX, TunerConstants.FrontRight.LocationY),
+            new Translation2d(TunerConstants.BackLeft.LocationX, TunerConstants.BackLeft.LocationY),
+            new Translation2d(TunerConstants.BackRight.LocationX, TunerConstants.BackRight.LocationY)
+        };
+    }
 }
