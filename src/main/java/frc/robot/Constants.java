@@ -1,31 +1,13 @@
-// Copyright 2021-2024 FRC 6328
-// http://github.com/Mechanical-Advantage
-//
-// This program is free software; you can redistribute it and/or
-// modify it under the terms of the GNU General Public License
-// version 3 as published by the Free Software Foundation or
-// available in the root directory of this project.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU General Public License for more details.
-
 package frc.robot;
 
 import edu.wpi.first.wpilibj.RobotBase;
 import frc.robot.util.RobotDeviceId;
 
-/**
- * This class defines the runtime mode used by AdvantageKit. The mode is always "real" when running on a roboRIO. Change
- * the value of "simMode" to switch between "sim" (physics sim) and "replay" (log replay from a file).
- */
 public final class Constants {
     public static final Mode simMode = Mode.SIM;
     public static final Mode currentMode = RobotBase.isReal() ? Mode.REAL : simMode;
     public static final boolean tuningMode = false;
 
-    /** Device IDs and power channels for added mechanism subsystems. */
     public static class RobotDevices {
         public static final class IntakeConstants {
             private IntakeConstants() {}
@@ -35,7 +17,12 @@ public final class Constants {
         }
     }
 
-    /** Turret PID and motion magic tuning constants. */
+    public static final class IntakeConstants {
+        public static final double DEPLOY_DEG = 95.0;
+        public static final double STOW_DEG = 0.0;
+        public static final double ROLLER_PERCENT = 0.5;
+    }
+
     public static final class TurretConstants {
         public static final double kP = 6.7;
         public static final double kI = 0.0;
@@ -48,14 +35,54 @@ public final class Constants {
         public static final double kJerkRpsPerSec2 = 4000.0;
     }
 
+    public static final class ShooterConstants {
+        private ShooterConstants() {}
+
+        public static final int FLYWHEEL_CAN_ID = 30;
+        public static final int HOOD_CAN_ID = 31;
+        public static final String CANBUS_NAME = "rio";
+
+        public static final boolean FLYWHEEL_INVERTED = false;
+        public static final boolean HOOD_INVERTED = false;
+
+        public static final double FLYWHEEL_STATOR_CURRENT_LIMIT = 80.0;
+        public static final double FLYWHEEL_SUPPLY_CURRENT_LIMIT = 40.0;
+        public static final double HOOD_SUPPLY_CURRENT_LIMIT = 30.0;
+
+        public static final double FLYWHEEL_KP = 0.5;
+        public static final double FLYWHEEL_KI = 0.0;
+        public static final double FLYWHEEL_KD = 0.0;
+        public static final double FLYWHEEL_KS = 0.0;
+        public static final double FLYWHEEL_KV = 0.12; // volts per rps
+        public static final double FLYWHEEL_KA = 0.0;
+
+        public static final double FLYWHEEL_DEFAULT_RPS = 60.0;
+        public static final double FLYWHEEL_SPEED_TOLERANCE_RPS = 2.0;
+
+        public static final double HOOD_KP = 8.0;
+        public static final double HOOD_KI = 0.0;
+        public static final double HOOD_KD = 0.0;
+        public static final double HOOD_KS = 0.0;
+        public static final double HOOD_KV = 0.0;
+        public static final double HOOD_KA = 0.0;
+        public static final double HOOD_POSITION_TOLERANCE_ROTATIONS = 0.01;
+        public static final double HOOD_MOTOR_ROTATIONS_PER_HOOD_ROTATION = 1.0;
+        public static final double HOOD_ZERO_ANGLE_DEGREES = 0.0;
+        public static final String HOOD_TARGET_DASHBOARD_KEY = "Shooter/Hood/TargetRotations";
+        public static final double HOOD_TARGET_DASHBOARD_DEFAULT_ROTATIONS = 0.0;
+
+        public static final double SPINDEXER_FEED_DUTY = 0.50;
+        public static final double SHOOTER_KICKER_FEED_DUTY = 0.50;
+
+        public static final double FLYWHEEL_TEST_MAX_DUTY = 0.50;
+        public static final double HOOD_TEST_MAX_DUTY = 0.25;
+    }
+
     public static enum Mode {
-        /** Running on a real robot. */
         REAL,
 
-        /** Running a physics simulator. */
         SIM,
 
-        /** Replaying from a log file. */
         REPLAY
     }
 }

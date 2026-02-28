@@ -23,7 +23,6 @@ public class IndexerSubsystem extends SubsystemBase {
     private static final double INDEXER_KD = 0.0;
     private static final double INDEXER_KS = 0.25;
     private static final double INDEXER_KV = 0.12;
-    // CTRE Phoenix 6 "reasonable starting points" for current limits.
     private static final double INDEXER_STATOR_CURRENT_LIMIT_AMPS = 120.0;
     private static final double INDEXER_SUPPLY_CURRENT_LIMIT_AMPS = 70.0;
     private static final double INDEXER_SUPPLY_CURRENT_LOWER_LIMIT_AMPS = 40.0;
@@ -57,24 +56,20 @@ public class IndexerSubsystem extends SubsystemBase {
         shooterIndexerMotor.getConfigurator().apply(config);
     }
 
-    /** Open-loop duty cycle control for spindexer. Range: [-1, 1]. */
     public void setSpindexerDutyCycle(double dutyCycle) {
         double clamped = MathUtil.clamp(dutyCycle, -1.0, 1.0);
         spindexerMotor.setControl(spindexerDutyCycleRequest.withOutput(clamped));
     }
 
-    /** Closed-loop velocity control for spindexer using Phoenix Pro FOC (motor RPS). */
     public void setSpindexerVelocityMotorRps(double motorRps) {
         spindexerMotor.setControl(spindexerVelocityRequest.withVelocity(RotationsPerSecond.of(motorRps)));
     }
 
-    /** Open-loop duty cycle control for shooter indexer. Range: [-1, 1]. */
     public void setShooterIndexerDutyCycle(double dutyCycle) {
         double clamped = MathUtil.clamp(dutyCycle, -1.0, 1.0);
         shooterIndexerMotor.setControl(shooterIndexerDutyCycleRequest.withOutput(clamped));
     }
 
-    /** Closed-loop velocity control for shooter indexer using Phoenix Pro FOC (motor RPS). */
     public void setShooterIndexerVelocityMotorRps(double motorRps) {
         shooterIndexerMotor.setControl(shooterIndexerVelocityRequest.withVelocity(RotationsPerSecond.of(motorRps)));
     }

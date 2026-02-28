@@ -33,7 +33,6 @@ public class TestTurretSubsystem extends SubsystemBase {
 
     private static final double POSITION_TOLERANCE_RAD = Units.degreesToRadians(1.0);
 
-    // Soft limits (post-gearbox output angle). Prevents wrapping past the allowed range.
     public final double MIN_ANGLE_RAD = Units.degreesToRadians(-180);
     public final double MAX_ANGLE_RAD = Units.degreesToRadians(180);
 
@@ -76,7 +75,6 @@ public class TestTurretSubsystem extends SubsystemBase {
         BaseStatusSignal.setUpdateFrequencyForAll(50.0, position, velocity, appliedVolts, supplyCurrent);
         motor.optimizeBusUtilization();
 
-        // Publish tunable PID values to SmartDashboard (editable on the fly)
         SmartDashboard.putNumber(DASHBOARD_PID_PREFIX + "kP", TurretConstants.kP);
         SmartDashboard.putNumber(DASHBOARD_PID_PREFIX + "kI", TurretConstants.kI);
         SmartDashboard.putNumber(DASHBOARD_PID_PREFIX + "kD", TurretConstants.kD);
@@ -89,7 +87,6 @@ public class TestTurretSubsystem extends SubsystemBase {
     public void periodic() {
         BaseStatusSignal.refreshAll(position, velocity, appliedVolts, supplyCurrent);
 
-        // Live PID tuning from SmartDashboard
         double dashP = SmartDashboard.getNumber(DASHBOARD_PID_PREFIX + "kP", TurretConstants.kP);
         double dashI = SmartDashboard.getNumber(DASHBOARD_PID_PREFIX + "kI", TurretConstants.kI);
         double dashD = SmartDashboard.getNumber(DASHBOARD_PID_PREFIX + "kD", TurretConstants.kD);
@@ -125,7 +122,6 @@ public class TestTurretSubsystem extends SubsystemBase {
         Logger.recordOutput("Turret/AppliedVolts", appliedVolts.getValueAsDouble());
         Logger.recordOutput("Turret/SupplyCurrentAmps", supplyCurrent.getValueAsDouble());
 
-        // Human-friendly angle logging (post-gearbox)
         double angleDeg = Units.radiansToDegrees(getPositionRadians());
         Logger.recordOutput("Turret/AngleDeg", angleDeg);
         if (DashboardThrottle.shouldPublish("Turret/Angle", 0.1)) {
@@ -143,12 +139,11 @@ public class TestTurretSubsystem extends SubsystemBase {
         }
     }
 
-    /** Sets the turret target angle (post-gearbox), and enables holding that position. */
     public void setTargetAngle(Rotation2d angle) {
         setTargetAngleRadians(angle.getRadians());
     }
 
-    /** Sets the turret target angle in radians (post-gearbox), and enables holding that position. */
+    /** Sets the turret target angle in radians (post-gearbox). */
     public void setTargetAngleRadians(double angleRad) {
         targetAngleRad = MathUtil.clamp(angleRad, MIN_ANGLE_RAD, MAX_ANGLE_RAD);
         controlEnabled = true;
@@ -162,12 +157,10 @@ public class TestTurretSubsystem extends SubsystemBase {
         return targetAngleRad;
     }
 
-    /** Returns true when the turret is within the configured tolerance of its target. */
     public boolean atTarget() {
         return Math.abs(targetAngleRad - getPositionRadians()) <= POSITION_TOLERANCE_RAD;
     }
 
-    /** Disables closed-loop holding and commands zero output. */
     public void disableClosedLoop() {
         controlEnabled = false;
         stop();

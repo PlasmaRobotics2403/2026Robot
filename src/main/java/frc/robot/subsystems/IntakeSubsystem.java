@@ -30,7 +30,6 @@ public class IntakeSubsystem extends SubsystemBase {
     private static final double MAX_PIVOT_VOLTS = 6.0;
     private static final double MAX_ROLLER_VOLTS = 12.0;
 
-    // Start slow for testing.
     private static final double PIVOT_MAX_PID_VOLTS = 2.0;
 
     private final TalonFX pivotMotor = new TalonFX(
@@ -60,11 +59,9 @@ public class IntakeSubsystem extends SubsystemBase {
     private final VoltageOut pivotVoltageRequest = new VoltageOut(0.0);
     private final VoltageOut rollerVoltageRequest = new VoltageOut(0.0);
 
-    // Last commanded roller output for debugging
     private double rollerCommandVolts = 0.0;
     private double rollerCommandPercent = 0.0;
 
-    // -------------------- Pivot position PID --------------------
     // Units: radians (mechanism/output, NOT motor rotations)
     private final PIDController pivotPid = new PIDController(3.0, 0.0, 0.0);
     private boolean pivotClosedLoopEnabled = false;
@@ -116,7 +113,6 @@ public class IntakeSubsystem extends SubsystemBase {
         Logger.recordOutput("Intake/Pivot/SupplyCurrentAmps", pivotSupplyCurrent.getValueAsDouble());
 
         if (DashboardThrottle.shouldPublish("Intake/Dashboard", 0.1)) {
-            // SmartDashboard "Intake" tab key group
             SmartDashboard.putNumber("Intake/Pivot/AngleDeg", Units.radiansToDegrees(getPivotPositionRadians()));
         }
 
@@ -125,7 +121,6 @@ public class IntakeSubsystem extends SubsystemBase {
         Logger.recordOutput("Intake/Roller/SupplyCurrentAmps", rollerSupplyCurrent.getValueAsDouble());
 
         if (DashboardThrottle.shouldPublish("Intake/Dashboard", 0.1)) {
-            // SmartDashboard "Intake" tab key group
             SmartDashboard.putNumber("Intake/Roller/SpeedRPM", (getRollerVelocityRadPerSec() * 60.0) / (2.0 * Math.PI));
         }
 
@@ -136,7 +131,6 @@ public class IntakeSubsystem extends SubsystemBase {
             SmartDashboard.putNumber("Intake/Roller/CommandPercent", rollerCommandPercent);
         }
 
-        // Pivot closed-loop control (optional)
         if (pivotClosedLoopEnabled) {
             double measurementRad = getPivotPositionRadians();
             double outputVolts = pivotPid.calculate(measurementRad, pivotTargetRad);
@@ -169,26 +163,22 @@ public class IntakeSubsystem extends SubsystemBase {
         pivotMotor.setControl(pivotVoltageRequest.withOutput(clamped));
     }
 
-    /** Enable closed-loop pivot control and immediately hold the current position. */
     public void enablePivotClosedLoopHold() {
         pivotTargetRad = getPivotPositionRadians();
         pivotPid.reset();
         pivotClosedLoopEnabled = true;
     }
 
-    /** Disable closed-loop pivot control (does not automatically stop the motor). */
     public void disablePivotClosedLoop() {
         pivotClosedLoopEnabled = false;
         pivotPid.reset();
     }
 
-    /** Set the desired pivot angle in radians and enable closed-loop control. */
     public void setPivotTargetRadians(double targetRad) {
         pivotTargetRad = targetRad;
         pivotClosedLoopEnabled = true;
     }
 
-    /** Convenience wrapper: set desired pivot angle in degrees and enable closed-loop control. */
     public void setPivotTargetDegrees(double targetDeg) {
         setPivotTargetRadians(Units.degreesToRadians(targetDeg));
     }
@@ -237,22 +227,18 @@ public class IntakeSubsystem extends SubsystemBase {
         setRollerVoltage(rollerCommandVolts);
     }
 
-    /** Run rollers to pull game piece in. Positive direction by convention. */
     public void runRollersIn(double percent) {
         setRollerPercent(Math.abs(percent));
     }
 
-    /** Run rollers to push game piece out. Negative direction by convention. */
     public void runRollersOut(double percent) {
         setRollerPercent(-Math.abs(percent));
     }
 
-    /** Convenience preset for first hardware tests (gentle intake). */
     public void intakeSlow() {
         runRollersIn(0.25);
     }
 
-    /** Convenience preset for eject testing. */
     public void outtakeSlow() {
         runRollersOut(0.25);
     }
