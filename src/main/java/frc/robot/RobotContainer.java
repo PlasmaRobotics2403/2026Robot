@@ -13,6 +13,8 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.commands.DriveCommands;
+import frc.robot.commands.IntakeOutCommand;
+import frc.robot.commands.IntakeStowCommand;
 import frc.robot.commands.RunIndexterDutyCycle;
 import frc.robot.commands.ShootCommand;
 import frc.robot.commands.TestTurretFollowCommand;
@@ -32,9 +34,8 @@ import frc.robot.subsystems.shooter.ShooterIO;
 import frc.robot.subsystems.shooter.ShooterIOSim;
 import frc.robot.subsystems.shooter.ShooterIOTalonFX;
 import frc.robot.subsystems.vision.Vision;
-import frc.robot.subsystems.vision.VisionConstants;
 import frc.robot.subsystems.vision.VisionIO;
-import frc.robot.subsystems.vision.VisionIOLimelight;
+import frc.robot.subsystems.vision.VisionIOPhotonVision;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
@@ -65,10 +66,8 @@ public class RobotContainer {
                         new ModuleIOTalonFX(TunerConstants.BackLeft),
                         new ModuleIOTalonFX(TunerConstants.BackRight),
                         (robotPose) -> {});
-                vision = new Vision(
-                        drive,
-                        new VisionIOLimelight(VisionConstants.camera0Name, drive::getRotation),
-                        new VisionIOLimelight(VisionConstants.camera1Name, drive::getRotation));
+                vision = new Vision(drive, new VisionIOPhotonVision(camera0Name, robotToCamera0));
+                // new VisionIOPhotonVision(camera1Name, robotToCamera1));
                 shooter = new Shooter(new ShooterIOTalonFX());
                 break;
 
@@ -132,9 +131,9 @@ public class RobotContainer {
                                 drive.resetOdometry(new Pose2d(drive.getPose().getTranslation(), new Rotation2d())))
                         .ignoringDisable(true));
 
-        // controller.rightTrigger().whileTrue(new IntakeOutCommand(intake, 95.0, 95.0, 0.5));
+        controller.rightTrigger().whileTrue(new IntakeOutCommand(intake));
 
-        controller.a().onTrue(Commands.runOnce(() -> intake.setPivotTargetDegrees(0.0), intake));
+        controller.a().onTrue(new IntakeStowCommand(intake));
 
         controller.b().whileTrue(new TestTurretFollowCommand(testTurret, vision));
 

@@ -11,7 +11,8 @@ public class VisionConstants {
     public static String camera0Name = "camera_0";
     public static String camera1Name = "camera_1";
 
-    public static Transform3d robotToCamera0 = new Transform3d(0.2, 0.0, 0.2, new Rotation3d(0.0, -0.4, 0.0));
+    public static Transform3d robotToCamera0 = new Transform3d(
+            -0.2953512, -0.21550884, 0.49809146, new Rotation3d(0.0, Math.toRadians(70), Math.toRadians(180)));
     public static Transform3d robotToCamera1 = new Transform3d(-0.2, 0.0, 0.2, new Rotation3d(0.0, -0.4, Math.PI));
 
     public static double maxAmbiguity = 0.3;

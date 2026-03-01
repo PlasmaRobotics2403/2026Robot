@@ -1,10 +1,11 @@
 package frc.robot.subsystems.shooter;
 
-import org.littletonrobotics.junction.Logger;
-
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants.ShooterConstants;
+import org.littletonrobotics.junction.Logger;
 
 public class Shooter extends SubsystemBase {
 
@@ -22,15 +23,35 @@ public class Shooter extends SubsystemBase {
     private ControlMode controlMode = ControlMode.IDLE;
     private double flywheelSetpointRps = 0.0;
     private double hoodSetpointRotations = 0.0;
+    private double flywheelPidP = ShooterConstants.FLYWHEEL_KP;
+    private double flywheelPidI = ShooterConstants.FLYWHEEL_KI;
+    private double flywheelPidD = ShooterConstants.FLYWHEEL_KD;
+    private double hoodPidP = ShooterConstants.HOOD_KP;
+    private double hoodPidI = ShooterConstants.HOOD_KI;
+    private double hoodPidD = ShooterConstants.HOOD_KD;
+    private boolean dashboardTargetsResetAfterBoot = false;
 
     public Shooter(ShooterIO io) {
         this.io = io;
+
+        SmartDashboard.putNumber(ShooterConstants.FLYWHEEL_PID_DASHBOARD_PREFIX + "kP", flywheelPidP);
+        SmartDashboard.putNumber(ShooterConstants.FLYWHEEL_PID_DASHBOARD_PREFIX + "kI", flywheelPidI);
+        SmartDashboard.putNumber(ShooterConstants.FLYWHEEL_PID_DASHBOARD_PREFIX + "kD", flywheelPidD);
+        SmartDashboard.putNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "kP", hoodPidP);
+        SmartDashboard.putNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "kI", hoodPidI);
+        SmartDashboard.putNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "kD", hoodPidD);
+        SmartDashboard.putNumber(
+                ShooterConstants.HOOD_TARGET_DASHBOARD_KEY, ShooterConstants.HOOD_TARGET_DASHBOARD_DEFAULT_ROTATIONS);
+        SmartDashboard.putNumber(
+                ShooterConstants.FLYWHEEL_DUTY_DASHBOARD_KEY, ShooterConstants.FLYWHEEL_DUTY_DASHBOARD_DEFAULT);
     }
 
     @Override
     public void periodic() {
+        forceDashboardTargetsResetAfterBoot();
         io.updateInputs(inputs);
         Logger.processInputs("Shooter", inputs);
+        updateDashboardTuning();
 
         Logger.recordOutput("Shooter/ControlMode", controlMode.toString());
         Logger.recordOutput("Shooter/FlywheelSetpointRps", flywheelSetpointRps);
@@ -41,6 +62,58 @@ public class Shooter extends SubsystemBase {
         Logger.recordOutput(
                 "Shooter/HoodAtTarget",
                 atHoodPositionRotations(hoodSetpointRotations, ShooterConstants.HOOD_POSITION_TOLERANCE_ROTATIONS));
+
+        Logger.recordOutput("Shooter/Flywheel/PID/kP", flywheelPidP);
+        Logger.recordOutput("Shooter/Flywheel/PID/kI", flywheelPidI);
+        Logger.recordOutput("Shooter/Flywheel/PID/kD", flywheelPidD);
+        Logger.recordOutput("Shooter/Flywheel/LeaderVelocityRps", inputs.flywheelLeaderVelocityRps);
+        Logger.recordOutput("Shooter/Flywheel/FollowerVelocityRps", inputs.flywheelFollowerVelocityRps);
+        Logger.recordOutput("Shooter/Hood/PID/kP", hoodPidP);
+        Logger.recordOutput("Shooter/Hood/PID/kI", hoodPidI);
+        Logger.recordOutput("Shooter/Hood/PID/kD", hoodPidD);
+        SmartDashboard.putNumber(ShooterConstants.FLYWHEEL_PID_DASHBOARD_PREFIX + "Active kP", flywheelPidP);
+        SmartDashboard.putNumber(ShooterConstants.FLYWHEEL_PID_DASHBOARD_PREFIX + "Active kI", flywheelPidI);
+        SmartDashboard.putNumber(ShooterConstants.FLYWHEEL_PID_DASHBOARD_PREFIX + "Active kD", flywheelPidD);
+        SmartDashboard.putNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "Active kP", hoodPidP);
+        SmartDashboard.putNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "Active kI", hoodPidI);
+        SmartDashboard.putNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "Active kD", hoodPidD);
+        SmartDashboard.putNumber("Shooter/Flywheel/CurrentRps", inputs.flywheelVelocityRps);
+        SmartDashboard.putNumber("Shooter/Hood/CurrentRotations", inputs.hoodPositionRotations);
+    }
+
+    private void forceDashboardTargetsResetAfterBoot() {
+        // Delay once after boot so dashboard-retained values are overridden by robot defaults.
+        if (dashboardTargetsResetAfterBoot || Timer.getFPGATimestamp() < 1.0) {
+            return;
+        }
+        SmartDashboard.putNumber(
+                ShooterConstants.HOOD_TARGET_DASHBOARD_KEY, ShooterConstants.HOOD_TARGET_DASHBOARD_DEFAULT_ROTATIONS);
+        dashboardTargetsResetAfterBoot = true;
+    }
+
+    private void updateDashboardTuning() {
+        double dashFlywheelP =
+                SmartDashboard.getNumber(ShooterConstants.FLYWHEEL_PID_DASHBOARD_PREFIX + "kP", flywheelPidP);
+        double dashFlywheelI =
+                SmartDashboard.getNumber(ShooterConstants.FLYWHEEL_PID_DASHBOARD_PREFIX + "kI", flywheelPidI);
+        double dashFlywheelD =
+                SmartDashboard.getNumber(ShooterConstants.FLYWHEEL_PID_DASHBOARD_PREFIX + "kD", flywheelPidD);
+        if (dashFlywheelP != flywheelPidP || dashFlywheelI != flywheelPidI || dashFlywheelD != flywheelPidD) {
+            flywheelPidP = dashFlywheelP;
+            flywheelPidI = dashFlywheelI;
+            flywheelPidD = dashFlywheelD;
+            io.setFlywheelPid(flywheelPidP, flywheelPidI, flywheelPidD);
+        }
+
+        double dashHoodP = SmartDashboard.getNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "kP", hoodPidP);
+        double dashHoodI = SmartDashboard.getNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "kI", hoodPidI);
+        double dashHoodD = SmartDashboard.getNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "kD", hoodPidD);
+        if (dashHoodP != hoodPidP || dashHoodI != hoodPidI || dashHoodD != hoodPidD) {
+            hoodPidP = dashHoodP;
+            hoodPidI = dashHoodI;
+            hoodPidD = dashHoodD;
+            io.setHoodPid(hoodPidP, hoodPidI, hoodPidD);
+        }
     }
 
     public void runFlywheelVelocity(double rps) {

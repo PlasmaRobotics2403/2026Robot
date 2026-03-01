@@ -8,7 +8,7 @@ import edu.wpi.first.wpilibj.simulation.FlywheelSim;
 public class ShooterIOSim implements ShooterIO {
 
     private final FlywheelSim flywheelSim = new FlywheelSim(
-            LinearSystemId.createFlywheelSystem(DCMotor.getKrakenX60Foc(1), 0.004, 1.0), DCMotor.getKrakenX60Foc(1));
+            LinearSystemId.createFlywheelSystem(DCMotor.getKrakenX60Foc(2), 0.004, 1.0), DCMotor.getKrakenX60Foc(2));
 
     private double flywheelAppliedVolts = 0.0;
     private double hoodDutyCycle = 0.0;
@@ -23,6 +23,8 @@ public class ShooterIOSim implements ShooterIO {
 
         inputs.flywheelConnected = true;
         inputs.flywheelVelocityRps = flywheelSim.getAngularVelocityRPM() / 60.0;
+        inputs.flywheelLeaderVelocityRps = inputs.flywheelVelocityRps;
+        inputs.flywheelFollowerVelocityRps = inputs.flywheelVelocityRps;
         inputs.flywheelAppliedVolts = flywheelAppliedVolts;
         inputs.flywheelSupplyCurrentAmps = flywheelSim.getCurrentDrawAmps();
         inputs.flywheelStatorCurrentAmps = flywheelSim.getCurrentDrawAmps();

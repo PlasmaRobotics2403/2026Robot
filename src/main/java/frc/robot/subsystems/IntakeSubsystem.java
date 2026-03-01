@@ -23,6 +23,7 @@ import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 
 public class IntakeSubsystem extends SubsystemBase {
+    private static final String PIVOT_PID_DASHBOARD_PREFIX = "Intake/Pivot/PID/";
 
     private static final double PIVOT_GEAR_RATIO = 15.3;
     private static final double ROLLER_GEAR_RATIO = 1.0;
@@ -64,8 +65,10 @@ public class IntakeSubsystem extends SubsystemBase {
 
     // Units: radians (mechanism/output, NOT motor rotations)
     private final PIDController pivotPid = new PIDController(3.0, 0.0, 0.0);
-    private boolean pivotClosedLoopEnabled = false;
     private double pivotTargetRad = 0.0;
+    private double pivotPidP = 3.0;
+    private double pivotPidI = 0.0;
+    private double pivotPidD = 0.0;
 
     public IntakeSubsystem() {
         pivotConfig.MotorOutput.NeutralMode = NeutralModeValue.Brake;
@@ -93,6 +96,13 @@ public class IntakeSubsystem extends SubsystemBase {
 
         // PID defaults (safe and gentle)
         pivotPid.setTolerance(Units.degreesToRadians(2.0));
+        SmartDashboard.putNumber(PIVOT_PID_DASHBOARD_PREFIX + "kP", pivotPidP);
+        SmartDashboard.putNumber(PIVOT_PID_DASHBOARD_PREFIX + "kI", pivotPidI);
+        SmartDashboard.putNumber(PIVOT_PID_DASHBOARD_PREFIX + "kD", pivotPidD);
+        pivotMotor.setPosition(0);
+        BaseStatusSignal.refreshAll(pivotPosition, pivotVelocity, pivotAppliedVolts, pivotSupplyCurrent);
+        pivotTargetRad = getPivotPositionRadians();
+        SmartDashboard.putNumber("Intake/Pivot/PID/TargetDeg", Units.radiansToDegrees(pivotTargetRad));
         pivotPid.reset();
     }
 
@@ -106,22 +116,23 @@ public class IntakeSubsystem extends SubsystemBase {
                 rollerVelocity,
                 rollerAppliedVolts,
                 rollerSupplyCurrent);
+        updatePivotPidFromDashboard();
+        double pivotAngleDeg = Units.radiansToDegrees(getPivotPositionRadians());
+        double rollerSpeedRpm = (getRollerVelocityRadPerSec() * 60.0) / (2.0 * Math.PI);
 
         Logger.recordOutput("Intake/Pivot/PositionRad", getPivotPositionRadians());
+        Logger.recordOutput("Intake/Pivot/AngleDeg", pivotAngleDeg);
         Logger.recordOutput("Intake/Pivot/VelocityRadPerSec", getPivotVelocityRadPerSec());
         Logger.recordOutput("Intake/Pivot/AppliedVolts", pivotAppliedVolts.getValueAsDouble());
         Logger.recordOutput("Intake/Pivot/SupplyCurrentAmps", pivotSupplyCurrent.getValueAsDouble());
-
-        if (DashboardThrottle.shouldPublish("Intake/Dashboard", 0.1)) {
-            SmartDashboard.putNumber("Intake/Pivot/AngleDeg", Units.radiansToDegrees(getPivotPositionRadians()));
-        }
+        SmartDashboard.putNumber("Intake/Pivot/AngleDeg", pivotAngleDeg);
 
         Logger.recordOutput("Intake/Roller/VelocityRadPerSec", getRollerVelocityRadPerSec());
         Logger.recordOutput("Intake/Roller/AppliedVolts", rollerAppliedVolts.getValueAsDouble());
         Logger.recordOutput("Intake/Roller/SupplyCurrentAmps", rollerSupplyCurrent.getValueAsDouble());
 
-        if (DashboardThrottle.shouldPublish("Intake/Dashboard", 0.1)) {
-            SmartDashboard.putNumber("Intake/Roller/SpeedRPM", (getRollerVelocityRadPerSec() * 60.0) / (2.0 * Math.PI));
+        if (DashboardThrottle.shouldPublish("Intake/RollerDashboard", 0.1)) {
+            SmartDashboard.putNumber("Intake/Roller/SpeedRPM", rollerSpeedRpm);
         }
 
         Logger.recordOutput("Intake/Roller/CommandVolts", rollerCommandVolts);
@@ -131,30 +142,42 @@ public class IntakeSubsystem extends SubsystemBase {
             SmartDashboard.putNumber("Intake/Roller/CommandPercent", rollerCommandPercent);
         }
 
-        if (pivotClosedLoopEnabled) {
-            double measurementRad = getPivotPositionRadians();
-            double outputVolts = pivotPid.calculate(measurementRad, pivotTargetRad);
-            double errorRad = pivotTargetRad - measurementRad;
-            outputVolts = MathUtil.clamp(outputVolts, -PIVOT_MAX_PID_VOLTS, PIVOT_MAX_PID_VOLTS);
-            setPivotVoltage(outputVolts);
+        double measurementRad = getPivotPositionRadians();
+        double outputVolts = pivotPid.calculate(measurementRad, pivotTargetRad);
+        double errorRad = pivotTargetRad - measurementRad;
+        outputVolts = MathUtil.clamp(outputVolts, -PIVOT_MAX_PID_VOLTS, PIVOT_MAX_PID_VOLTS);
+        setPivotVoltage(outputVolts);
 
-            Logger.recordOutput("Intake/Pivot/PID/Enabled", true);
-            Logger.recordOutput("Intake/Pivot/PID/TargetRad", pivotTargetRad);
-            Logger.recordOutput("Intake/Pivot/PID/ErrorRad", errorRad);
-            Logger.recordOutput("Intake/Pivot/PID/OutputVolts", outputVolts);
+        Logger.recordOutput("Intake/Pivot/PID/Enabled", true);
+        Logger.recordOutput("Intake/Pivot/PID/TargetRad", pivotTargetRad);
+        Logger.recordOutput("Intake/Pivot/PID/ErrorRad", errorRad);
+        Logger.recordOutput("Intake/Pivot/PID/OutputVolts", outputVolts);
+        Logger.recordOutput("Intake/Pivot/PID/kP", pivotPidP);
+        Logger.recordOutput("Intake/Pivot/PID/kI", pivotPidI);
+        Logger.recordOutput("Intake/Pivot/PID/kD", pivotPidD);
 
-            if (DashboardThrottle.shouldPublish("Intake/PivotPID", 0.1)) {
-                SmartDashboard.putBoolean("Intake/Pivot/PID/Enabled", true);
-                SmartDashboard.putNumber("Intake/Pivot/PID/TargetDeg", Units.radiansToDegrees(pivotTargetRad));
-                SmartDashboard.putNumber("Intake/Pivot/PID/ErrorDeg", Units.radiansToDegrees(errorRad));
-                SmartDashboard.putNumber("Intake/Pivot/PID/OutputVolts", outputVolts);
-                SmartDashboard.putBoolean("Intake/Pivot/PID/AtTarget", isPivotAtTarget());
-            }
-        } else {
-            Logger.recordOutput("Intake/Pivot/PID/Enabled", false);
-            if (DashboardThrottle.shouldPublish("Intake/PivotPID", 0.2)) {
-                SmartDashboard.putBoolean("Intake/Pivot/PID/Enabled", false);
-            }
+        if (DashboardThrottle.shouldPublish("Intake/PivotPID", 0.1)) {
+            SmartDashboard.putBoolean("Intake/Pivot/PID/Enabled", true);
+            SmartDashboard.putNumber("Intake/Pivot/PID/TargetDeg", Units.radiansToDegrees(pivotTargetRad));
+            SmartDashboard.putNumber("Intake/Pivot/PID/ErrorDeg", Units.radiansToDegrees(errorRad));
+            SmartDashboard.putNumber("Intake/Pivot/PID/OutputVolts", outputVolts);
+            SmartDashboard.putBoolean("Intake/Pivot/PID/AtTarget", isPivotAtTarget());
+            SmartDashboard.putNumber(PIVOT_PID_DASHBOARD_PREFIX + "Active kP", pivotPidP);
+            SmartDashboard.putNumber(PIVOT_PID_DASHBOARD_PREFIX + "Active kI", pivotPidI);
+            SmartDashboard.putNumber(PIVOT_PID_DASHBOARD_PREFIX + "Active kD", pivotPidD);
+        }
+    }
+
+    private void updatePivotPidFromDashboard() {
+        double dashP = SmartDashboard.getNumber(PIVOT_PID_DASHBOARD_PREFIX + "kP", pivotPidP);
+        double dashI = SmartDashboard.getNumber(PIVOT_PID_DASHBOARD_PREFIX + "kI", pivotPidI);
+        double dashD = SmartDashboard.getNumber(PIVOT_PID_DASHBOARD_PREFIX + "kD", pivotPidD);
+        if (dashP != pivotPidP || dashI != pivotPidI || dashD != pivotPidD) {
+            pivotPidP = dashP;
+            pivotPidI = dashI;
+            pivotPidD = dashD;
+            pivotPid.setPID(pivotPidP, pivotPidI, pivotPidD);
+            pivotPid.reset();
         }
     }
 
@@ -166,17 +189,14 @@ public class IntakeSubsystem extends SubsystemBase {
     public void enablePivotClosedLoopHold() {
         pivotTargetRad = getPivotPositionRadians();
         pivotPid.reset();
-        pivotClosedLoopEnabled = true;
     }
 
     public void disablePivotClosedLoop() {
-        pivotClosedLoopEnabled = false;
-        pivotPid.reset();
+        enablePivotClosedLoopHold();
     }
 
     public void setPivotTargetRadians(double targetRad) {
         pivotTargetRad = targetRad;
-        pivotClosedLoopEnabled = true;
     }
 
     public void setPivotTargetDegrees(double targetDeg) {
@@ -188,7 +208,7 @@ public class IntakeSubsystem extends SubsystemBase {
     }
 
     public boolean isPivotClosedLoopEnabled() {
-        return pivotClosedLoopEnabled;
+        return true;
     }
 
     public boolean isPivotAtTarget() {
@@ -196,7 +216,7 @@ public class IntakeSubsystem extends SubsystemBase {
     }
 
     public void stopPivot() {
-        pivotMotor.stopMotor();
+        enablePivotClosedLoopHold();
     }
 
     @AutoLogOutput(key = "Intake/Pivot/PositionRad")

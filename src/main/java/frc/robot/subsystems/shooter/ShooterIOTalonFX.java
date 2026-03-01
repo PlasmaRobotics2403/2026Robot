@@ -25,8 +25,11 @@ import frc.robot.Constants.ShooterConstants;
 
 public class ShooterIOTalonFX implements ShooterIO {
 
-    private final TalonFX flywheelMotor;
+    private final TalonFX flywheelLeaderMotor;
+    private final TalonFX flywheelFollowerMotor;
     private final TalonFX hoodMotor;
+    private final TalonFXConfiguration flywheelConfig = new TalonFXConfiguration();
+    private final TalonFXConfiguration hoodConfig = new TalonFXConfiguration();
 
     private final VelocityVoltage flywheelVelocityRequest = new VelocityVoltage(0.0);
     private final DutyCycleOut flywheelDutyRequest = new DutyCycleOut(0.0);
@@ -34,11 +37,16 @@ public class ShooterIOTalonFX implements ShooterIO {
     private final PositionVoltage hoodPositionRequest = new PositionVoltage(0.0);
     private final NeutralOut neutralRequest = new NeutralOut();
 
-    private final StatusSignal<AngularVelocity> flywheelVelocity;
-    private final StatusSignal<Voltage> flywheelAppliedVolts;
-    private final StatusSignal<Current> flywheelSupplyCurrent;
-    private final StatusSignal<Current> flywheelStatorCurrent;
-    private final StatusSignal<Temperature> flywheelTemp;
+    private final StatusSignal<AngularVelocity> flywheelLeaderVelocity;
+    private final StatusSignal<Voltage> flywheelLeaderAppliedVolts;
+    private final StatusSignal<Current> flywheelLeaderSupplyCurrent;
+    private final StatusSignal<Current> flywheelLeaderStatorCurrent;
+    private final StatusSignal<Temperature> flywheelLeaderTemp;
+    private final StatusSignal<AngularVelocity> flywheelFollowerVelocity;
+    private final StatusSignal<Voltage> flywheelFollowerAppliedVolts;
+    private final StatusSignal<Current> flywheelFollowerSupplyCurrent;
+    private final StatusSignal<Current> flywheelFollowerStatorCurrent;
+    private final StatusSignal<Temperature> flywheelFollowerTemp;
 
     private final StatusSignal<Angle> hoodPosition;
     private final StatusSignal<AngularVelocity> hoodVelocity;
@@ -46,16 +54,19 @@ public class ShooterIOTalonFX implements ShooterIO {
     private final StatusSignal<Current> hoodSupplyCurrent;
     private final StatusSignal<Temperature> hoodTemp;
 
-    private final Debouncer flywheelConnectedDebounce = new Debouncer(0.5);
+    private final Debouncer flywheelLeaderConnectedDebounce = new Debouncer(0.5);
+    private final Debouncer flywheelFollowerConnectedDebounce = new Debouncer(0.5);
     private final Debouncer hoodConnectedDebounce = new Debouncer(0.5);
 
     public ShooterIOTalonFX() {
-        flywheelMotor = new TalonFX(ShooterConstants.FLYWHEEL_CAN_ID, new CANBus(ShooterConstants.CANBUS_NAME));
+        flywheelLeaderMotor =
+                new TalonFX(ShooterConstants.FLYWHEEL_LEADER_CAN_ID, new CANBus(ShooterConstants.CANBUS_NAME));
+        flywheelFollowerMotor =
+                new TalonFX(ShooterConstants.FLYWHEEL_FOLLOWER_CAN_ID, new CANBus(ShooterConstants.CANBUS_NAME));
         hoodMotor = new TalonFX(ShooterConstants.HOOD_CAN_ID, new CANBus(ShooterConstants.CANBUS_NAME));
 
-        var flywheelConfig = new TalonFXConfiguration();
         flywheelConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
-        flywheelConfig.MotorOutput.Inverted = ShooterConstants.FLYWHEEL_INVERTED
+        flywheelConfig.MotorOutput.Inverted = ShooterConstants.FLYWHEEL_LEADER_INVERTED
                 ? InvertedValue.Clockwise_Positive
                 : InvertedValue.CounterClockwise_Positive;
         flywheelConfig.CurrentLimits.StatorCurrentLimit = ShooterConstants.FLYWHEEL_STATOR_CURRENT_LIMIT;
@@ -71,10 +82,13 @@ public class ShooterIOTalonFX implements ShooterIO {
                 .withKV(ShooterConstants.FLYWHEEL_KV)
                 .withKA(ShooterConstants.FLYWHEEL_KA);
 
-        tryUntilOk(5, () -> flywheelMotor.getConfigurator().apply(flywheelConfig, 0.25));
+        tryUntilOk(5, () -> flywheelLeaderMotor.getConfigurator().apply(flywheelConfig, 0.25));
+        flywheelConfig.MotorOutput.Inverted = ShooterConstants.FLYWHEEL_FOLLOWER_INVERTED
+                ? InvertedValue.Clockwise_Positive
+                : InvertedValue.CounterClockwise_Positive;
+        tryUntilOk(5, () -> flywheelFollowerMotor.getConfigurator().apply(flywheelConfig, 0.25));
 
-        var hoodConfig = new TalonFXConfiguration();
-        hoodConfig.MotorOutput.NeutralMode = NeutralModeValue.Brake;
+        hoodConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
         hoodConfig.MotorOutput.Inverted = ShooterConstants.HOOD_INVERTED
                 ? InvertedValue.Clockwise_Positive
                 : InvertedValue.CounterClockwise_Positive;
@@ -90,11 +104,16 @@ public class ShooterIOTalonFX implements ShooterIO {
 
         tryUntilOk(5, () -> hoodMotor.getConfigurator().apply(hoodConfig, 0.25));
 
-        flywheelVelocity = flywheelMotor.getVelocity();
-        flywheelAppliedVolts = flywheelMotor.getMotorVoltage();
-        flywheelSupplyCurrent = flywheelMotor.getSupplyCurrent();
-        flywheelStatorCurrent = flywheelMotor.getStatorCurrent();
-        flywheelTemp = flywheelMotor.getDeviceTemp();
+        flywheelLeaderVelocity = flywheelLeaderMotor.getVelocity();
+        flywheelLeaderAppliedVolts = flywheelLeaderMotor.getMotorVoltage();
+        flywheelLeaderSupplyCurrent = flywheelLeaderMotor.getSupplyCurrent();
+        flywheelLeaderStatorCurrent = flywheelLeaderMotor.getStatorCurrent();
+        flywheelLeaderTemp = flywheelLeaderMotor.getDeviceTemp();
+        flywheelFollowerVelocity = flywheelFollowerMotor.getVelocity();
+        flywheelFollowerAppliedVolts = flywheelFollowerMotor.getMotorVoltage();
+        flywheelFollowerSupplyCurrent = flywheelFollowerMotor.getSupplyCurrent();
+        flywheelFollowerStatorCurrent = flywheelFollowerMotor.getStatorCurrent();
+        flywheelFollowerTemp = flywheelFollowerMotor.getDeviceTemp();
 
         hoodPosition = hoodMotor.getPosition();
         hoodVelocity = hoodMotor.getVelocity();
@@ -104,33 +123,59 @@ public class ShooterIOTalonFX implements ShooterIO {
 
         BaseStatusSignal.setUpdateFrequencyForAll(
                 50.0,
-                flywheelVelocity,
-                flywheelAppliedVolts,
-                flywheelSupplyCurrent,
-                flywheelStatorCurrent,
-                flywheelTemp,
+                flywheelLeaderVelocity,
+                flywheelLeaderAppliedVolts,
+                flywheelLeaderSupplyCurrent,
+                flywheelLeaderStatorCurrent,
+                flywheelLeaderTemp,
+                flywheelFollowerVelocity,
+                flywheelFollowerAppliedVolts,
+                flywheelFollowerSupplyCurrent,
+                flywheelFollowerStatorCurrent,
+                flywheelFollowerTemp,
                 hoodPosition,
                 hoodVelocity,
                 hoodAppliedVolts,
                 hoodSupplyCurrent,
                 hoodTemp);
-        ParentDevice.optimizeBusUtilizationForAll(flywheelMotor, hoodMotor);
+        ParentDevice.optimizeBusUtilizationForAll(flywheelLeaderMotor, flywheelFollowerMotor, hoodMotor);
     }
 
     @Override
     public void updateInputs(ShooterIOInputs inputs) {
-        var flywheelStatus = BaseStatusSignal.refreshAll(
-                flywheelVelocity, flywheelAppliedVolts, flywheelSupplyCurrent, flywheelStatorCurrent, flywheelTemp);
+        var flywheelLeaderStatus = BaseStatusSignal.refreshAll(
+                flywheelLeaderVelocity,
+                flywheelLeaderAppliedVolts,
+                flywheelLeaderSupplyCurrent,
+                flywheelLeaderStatorCurrent,
+                flywheelLeaderTemp);
+        var flywheelFollowerStatus = BaseStatusSignal.refreshAll(
+                flywheelFollowerVelocity,
+                flywheelFollowerAppliedVolts,
+                flywheelFollowerSupplyCurrent,
+                flywheelFollowerStatorCurrent,
+                flywheelFollowerTemp);
         var hoodStatus =
                 BaseStatusSignal.refreshAll(hoodPosition, hoodVelocity, hoodAppliedVolts, hoodSupplyCurrent, hoodTemp);
 
-        inputs.flywheelConnected = flywheelConnectedDebounce.calculate(flywheelStatus.isOK());
-        inputs.flywheelVelocityRps = flywheelVelocity.getValueAsDouble();
-        inputs.flywheelAppliedVolts = flywheelAppliedVolts.getValueAsDouble();
-        inputs.flywheelSupplyCurrentAmps = flywheelSupplyCurrent.getValueAsDouble();
-        inputs.flywheelStatorCurrentAmps = flywheelStatorCurrent.getValueAsDouble();
-        inputs.flywheelTempCelsius = flywheelTemp.getValueAsDouble();
-        inputs.flywheelClosedLoopErrorRps = flywheelMotor.getClosedLoopError().getValueAsDouble();
+        boolean leaderConnected = flywheelLeaderConnectedDebounce.calculate(flywheelLeaderStatus.isOK());
+        boolean followerConnected = flywheelFollowerConnectedDebounce.calculate(flywheelFollowerStatus.isOK());
+        inputs.flywheelConnected = leaderConnected && followerConnected;
+        inputs.flywheelLeaderVelocityRps = flywheelLeaderVelocity.getValueAsDouble();
+        inputs.flywheelFollowerVelocityRps = flywheelFollowerVelocity.getValueAsDouble();
+        inputs.flywheelVelocityRps = (inputs.flywheelLeaderVelocityRps + inputs.flywheelFollowerVelocityRps) / 2.0;
+        inputs.flywheelAppliedVolts =
+                (flywheelLeaderAppliedVolts.getValueAsDouble() + flywheelFollowerAppliedVolts.getValueAsDouble()) / 2.0;
+        inputs.flywheelSupplyCurrentAmps =
+                flywheelLeaderSupplyCurrent.getValueAsDouble() + flywheelFollowerSupplyCurrent.getValueAsDouble();
+        inputs.flywheelStatorCurrentAmps =
+                flywheelLeaderStatorCurrent.getValueAsDouble() + flywheelFollowerStatorCurrent.getValueAsDouble();
+        inputs.flywheelTempCelsius =
+                Math.max(flywheelLeaderTemp.getValueAsDouble(), flywheelFollowerTemp.getValueAsDouble());
+        inputs.flywheelClosedLoopErrorRps =
+                (flywheelLeaderMotor.getClosedLoopError().getValueAsDouble()
+                                + flywheelFollowerMotor.getClosedLoopError().getValueAsDouble())
+                        / 2.0;
 
         inputs.hoodConnected = hoodConnectedDebounce.calculate(hoodStatus.isOK());
         inputs.hoodPositionRotations = hoodPosition.getValueAsDouble();
@@ -142,13 +187,38 @@ public class ShooterIOTalonFX implements ShooterIO {
     }
 
     @Override
+    public void setFlywheelPid(double kP, double kI, double kD) {
+        flywheelConfig.Slot0.kP = kP;
+        flywheelConfig.Slot0.kI = kI;
+        flywheelConfig.Slot0.kD = kD;
+        flywheelConfig.MotorOutput.Inverted = ShooterConstants.FLYWHEEL_LEADER_INVERTED
+                ? InvertedValue.Clockwise_Positive
+                : InvertedValue.CounterClockwise_Positive;
+        tryUntilOk(5, () -> flywheelLeaderMotor.getConfigurator().apply(flywheelConfig, 0.25));
+        flywheelConfig.MotorOutput.Inverted = ShooterConstants.FLYWHEEL_FOLLOWER_INVERTED
+                ? InvertedValue.Clockwise_Positive
+                : InvertedValue.CounterClockwise_Positive;
+        tryUntilOk(5, () -> flywheelFollowerMotor.getConfigurator().apply(flywheelConfig, 0.25));
+    }
+
+    @Override
+    public void setHoodPid(double kP, double kI, double kD) {
+        hoodConfig.Slot0.kP = kP;
+        hoodConfig.Slot0.kI = kI;
+        hoodConfig.Slot0.kD = kD;
+        tryUntilOk(5, () -> hoodMotor.getConfigurator().apply(hoodConfig, 0.25));
+    }
+
+    @Override
     public void setFlywheelVelocityRps(double rps) {
-        flywheelMotor.setControl(flywheelVelocityRequest.withVelocity(rps));
+        flywheelLeaderMotor.setControl(flywheelVelocityRequest.withVelocity(rps));
+        flywheelFollowerMotor.setControl(flywheelVelocityRequest.withVelocity(rps));
     }
 
     @Override
     public void setFlywheelDutyCycle(double output) {
-        flywheelMotor.setControl(flywheelDutyRequest.withOutput(output));
+        flywheelLeaderMotor.setControl(flywheelDutyRequest.withOutput(output));
+        flywheelFollowerMotor.setControl(flywheelDutyRequest.withOutput(output));
     }
 
     @Override
@@ -163,7 +233,8 @@ public class ShooterIOTalonFX implements ShooterIO {
 
     @Override
     public void stopFlywheel() {
-        flywheelMotor.setControl(neutralRequest);
+        flywheelLeaderMotor.setControl(neutralRequest);
+        flywheelFollowerMotor.setControl(neutralRequest);
     }
 
     @Override

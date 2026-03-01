@@ -161,6 +161,7 @@ public class Drive extends SubsystemBase implements Vision.VisionConsumer {
         odometryLock.lock();
         gyroIO.updateInputs(gyroInputs);
         Logger.processInputs("Drive/Gyro", gyroInputs);
+        Logger.recordOutput("Swerve/Estimated Pos", getPose());
         for (var module : modules) {
             module.periodic();
         }

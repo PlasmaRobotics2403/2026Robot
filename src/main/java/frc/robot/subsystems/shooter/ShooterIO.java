@@ -8,6 +8,8 @@ public interface ShooterIO {
     public static class ShooterIOInputs {
         public boolean flywheelConnected = false;
         public double flywheelVelocityRps = 0.0;
+        public double flywheelLeaderVelocityRps = 0.0;
+        public double flywheelFollowerVelocityRps = 0.0;
         public double flywheelAppliedVolts = 0.0;
         public double flywheelSupplyCurrentAmps = 0.0;
         public double flywheelStatorCurrentAmps = 0.0;
@@ -32,6 +34,10 @@ public interface ShooterIO {
     public default void setHoodDutyCycle(double output) {}
 
     public default void setHoodPositionRotations(double rotations) {}
+
+    public default void setFlywheelPid(double kP, double kI, double kD) {}
+
+    public default void setHoodPid(double kP, double kI, double kD) {}
 
     public default void stopFlywheel() {}
 

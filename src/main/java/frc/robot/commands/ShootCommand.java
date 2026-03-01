@@ -14,24 +14,24 @@ public class ShootCommand extends Command {
     }
 
     @Override
-    public void initialize() {
-        SmartDashboard.putNumber(
-                ShooterConstants.HOOD_TARGET_DASHBOARD_KEY, ShooterConstants.HOOD_TARGET_DASHBOARD_DEFAULT_ROTATIONS);
-    }
+    public void initialize() {}
 
     @Override
     public void execute() {
-        shooter.runFlywheelDutyCycle(0.4);
+        double flywheelDuty = SmartDashboard.getNumber(
+                ShooterConstants.FLYWHEEL_DUTY_DASHBOARD_KEY, ShooterConstants.FLYWHEEL_DUTY_DASHBOARD_DEFAULT);
+        shooter.runFlywheelDutyCycle(flywheelDuty);
         double hoodTargetRotations = SmartDashboard.getNumber(
                 ShooterConstants.HOOD_TARGET_DASHBOARD_KEY, ShooterConstants.HOOD_TARGET_DASHBOARD_DEFAULT_ROTATIONS);
         shooter.setHoodPositionRotations(hoodTargetRotations);
         SmartDashboard.putNumber("Shooter/Hood/CurrentRotations", shooter.getHoodPositionRotations());
+        SmartDashboard.putNumber("Shooter/Flywheel/CurrentRps", shooter.getFlywheelVelocityRps());
     }
 
     @Override
     public void end(boolean interrupted) {
         shooter.stopFlywheel();
-        shooter.stopHood();
+        shooter.setHoodPositionRotations(ShooterConstants.HOOD_TARGET_DASHBOARD_DEFAULT_ROTATIONS);
     }
 
     @Override
