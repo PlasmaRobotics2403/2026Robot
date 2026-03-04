@@ -35,7 +35,7 @@ public interface ShooterIO {
 
     public default void setHoodPositionRotations(double rotations) {}
 
-    public default void setFlywheelPid(double kP, double kI, double kD) {}
+    public default void setFlywheelPid(double kP, double kI, double kD, double kV) {}
 
     public default void setHoodPid(double kP, double kI, double kD) {}
 

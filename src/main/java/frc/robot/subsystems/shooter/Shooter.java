@@ -26,6 +26,7 @@ public class Shooter extends SubsystemBase {
     private double flywheelPidP = ShooterConstants.FLYWHEEL_KP;
     private double flywheelPidI = ShooterConstants.FLYWHEEL_KI;
     private double flywheelPidD = ShooterConstants.FLYWHEEL_KD;
+    private double flywheelPidV = ShooterConstants.FLYWHEEL_KV;
     private double hoodPidP = ShooterConstants.HOOD_KP;
     private double hoodPidI = ShooterConstants.HOOD_KI;
     private double hoodPidD = ShooterConstants.HOOD_KD;
@@ -37,11 +38,15 @@ public class Shooter extends SubsystemBase {
         SmartDashboard.putNumber(ShooterConstants.FLYWHEEL_PID_DASHBOARD_PREFIX + "kP", flywheelPidP);
         SmartDashboard.putNumber(ShooterConstants.FLYWHEEL_PID_DASHBOARD_PREFIX + "kI", flywheelPidI);
         SmartDashboard.putNumber(ShooterConstants.FLYWHEEL_PID_DASHBOARD_PREFIX + "kD", flywheelPidD);
+        SmartDashboard.putNumber(ShooterConstants.FLYWHEEL_PID_DASHBOARD_PREFIX + "kV", flywheelPidV);
         SmartDashboard.putNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "kP", hoodPidP);
         SmartDashboard.putNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "kI", hoodPidI);
         SmartDashboard.putNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "kD", hoodPidD);
         SmartDashboard.putNumber(
                 ShooterConstants.HOOD_TARGET_DASHBOARD_KEY, ShooterConstants.HOOD_TARGET_DASHBOARD_DEFAULT_ROTATIONS);
+        SmartDashboard.putNumber(
+                ShooterConstants.FLYWHEEL_TARGET_RPS_DASHBOARD_KEY,
+                ShooterConstants.FLYWHEEL_TARGET_RPS_DASHBOARD_DEFAULT);
         SmartDashboard.putNumber(
                 ShooterConstants.FLYWHEEL_DUTY_DASHBOARD_KEY, ShooterConstants.FLYWHEEL_DUTY_DASHBOARD_DEFAULT);
     }
@@ -55,6 +60,8 @@ public class Shooter extends SubsystemBase {
 
         Logger.recordOutput("Shooter/ControlMode", controlMode.toString());
         Logger.recordOutput("Shooter/FlywheelSetpointRps", flywheelSetpointRps);
+        Logger.recordOutput("Shooter/Flywheel/TargetRps", flywheelSetpointRps);
+        Logger.recordOutput("Shooter/Flywheel/CurrentRps", inputs.flywheelVelocityRps);
         Logger.recordOutput(
                 "Shooter/FlywheelAtSpeed",
                 atFlywheelSpeed(flywheelSetpointRps, ShooterConstants.FLYWHEEL_SPEED_TOLERANCE_RPS));
@@ -66,6 +73,7 @@ public class Shooter extends SubsystemBase {
         Logger.recordOutput("Shooter/Flywheel/PID/kP", flywheelPidP);
         Logger.recordOutput("Shooter/Flywheel/PID/kI", flywheelPidI);
         Logger.recordOutput("Shooter/Flywheel/PID/kD", flywheelPidD);
+        Logger.recordOutput("Shooter/Flywheel/PID/kV", flywheelPidV);
         Logger.recordOutput("Shooter/Flywheel/LeaderVelocityRps", inputs.flywheelLeaderVelocityRps);
         Logger.recordOutput("Shooter/Flywheel/FollowerVelocityRps", inputs.flywheelFollowerVelocityRps);
         Logger.recordOutput("Shooter/Hood/PID/kP", hoodPidP);
@@ -74,10 +82,12 @@ public class Shooter extends SubsystemBase {
         SmartDashboard.putNumber(ShooterConstants.FLYWHEEL_PID_DASHBOARD_PREFIX + "Active kP", flywheelPidP);
         SmartDashboard.putNumber(ShooterConstants.FLYWHEEL_PID_DASHBOARD_PREFIX + "Active kI", flywheelPidI);
         SmartDashboard.putNumber(ShooterConstants.FLYWHEEL_PID_DASHBOARD_PREFIX + "Active kD", flywheelPidD);
+        SmartDashboard.putNumber(ShooterConstants.FLYWHEEL_PID_DASHBOARD_PREFIX + "Active kV", flywheelPidV);
         SmartDashboard.putNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "Active kP", hoodPidP);
         SmartDashboard.putNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "Active kI", hoodPidI);
         SmartDashboard.putNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "Active kD", hoodPidD);
         SmartDashboard.putNumber("Shooter/Flywheel/CurrentRps", inputs.flywheelVelocityRps);
+        SmartDashboard.putNumber("Shooter/Flywheel/ActiveTargetRps", flywheelSetpointRps);
         SmartDashboard.putNumber("Shooter/Hood/CurrentRotations", inputs.hoodPositionRotations);
     }
 
@@ -88,6 +98,9 @@ public class Shooter extends SubsystemBase {
         }
         SmartDashboard.putNumber(
                 ShooterConstants.HOOD_TARGET_DASHBOARD_KEY, ShooterConstants.HOOD_TARGET_DASHBOARD_DEFAULT_ROTATIONS);
+        SmartDashboard.putNumber(
+                ShooterConstants.FLYWHEEL_TARGET_RPS_DASHBOARD_KEY,
+                ShooterConstants.FLYWHEEL_TARGET_RPS_DASHBOARD_DEFAULT);
         dashboardTargetsResetAfterBoot = true;
     }
 
@@ -98,11 +111,17 @@ public class Shooter extends SubsystemBase {
                 SmartDashboard.getNumber(ShooterConstants.FLYWHEEL_PID_DASHBOARD_PREFIX + "kI", flywheelPidI);
         double dashFlywheelD =
                 SmartDashboard.getNumber(ShooterConstants.FLYWHEEL_PID_DASHBOARD_PREFIX + "kD", flywheelPidD);
-        if (dashFlywheelP != flywheelPidP || dashFlywheelI != flywheelPidI || dashFlywheelD != flywheelPidD) {
+        double dashFlywheelV =
+                SmartDashboard.getNumber(ShooterConstants.FLYWHEEL_PID_DASHBOARD_PREFIX + "kV", flywheelPidV);
+        if (dashFlywheelP != flywheelPidP
+                || dashFlywheelI != flywheelPidI
+                || dashFlywheelD != flywheelPidD
+                || dashFlywheelV != flywheelPidV) {
             flywheelPidP = dashFlywheelP;
             flywheelPidI = dashFlywheelI;
             flywheelPidD = dashFlywheelD;
-            io.setFlywheelPid(flywheelPidP, flywheelPidI, flywheelPidD);
+            flywheelPidV = dashFlywheelV;
+            io.setFlywheelPid(flywheelPidP, flywheelPidI, flywheelPidD, flywheelPidV);
         }
 
         double dashHoodP = SmartDashboard.getNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "kP", hoodPidP);

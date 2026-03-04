@@ -26,13 +26,22 @@ public class VisionIOPhotonVision implements VisionIO {
 
         Set<Short> tagIds = new HashSet<>();
         List<PoseObservation> poseObservations = new LinkedList<>();
+        List<TaggedTargetObservation> taggedTargetObservations = new LinkedList<>();
         for (var result : camera.getAllUnreadResults()) {
             if (result.hasTargets()) {
                 inputs.latestTargetObservation = new TargetObservation(
                         Rotation2d.fromDegrees(result.getBestTarget().getYaw()),
                         Rotation2d.fromDegrees(result.getBestTarget().getPitch()));
+                taggedTargetObservations.clear();
+                for (var target : result.targets) {
+                    taggedTargetObservations.add(new TaggedTargetObservation(
+                            target.fiducialId,
+                            Rotation2d.fromDegrees(target.getYaw()),
+                            Rotation2d.fromDegrees(target.getPitch())));
+                }
             } else {
                 inputs.latestTargetObservation = new TargetObservation(new Rotation2d(), new Rotation2d());
+                taggedTargetObservations.clear();
             }
 
             if (result.multitagResult.isPresent()) {
@@ -86,6 +95,11 @@ public class VisionIOPhotonVision implements VisionIO {
         inputs.poseObservations = new PoseObservation[poseObservations.size()];
         for (int i = 0; i < poseObservations.size(); i++) {
             inputs.poseObservations[i] = poseObservations.get(i);
+        }
+
+        inputs.taggedTargetObservations = new TaggedTargetObservation[taggedTargetObservations.size()];
+        for (int i = 0; i < taggedTargetObservations.size(); i++) {
+            inputs.taggedTargetObservations[i] = taggedTargetObservations.get(i);
         }
 
         inputs.tagIds = new int[tagIds.size()];

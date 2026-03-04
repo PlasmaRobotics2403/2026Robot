@@ -187,10 +187,11 @@ public class ShooterIOTalonFX implements ShooterIO {
     }
 
     @Override
-    public void setFlywheelPid(double kP, double kI, double kD) {
+    public void setFlywheelPid(double kP, double kI, double kD, double kV) {
         flywheelConfig.Slot0.kP = kP;
         flywheelConfig.Slot0.kI = kI;
         flywheelConfig.Slot0.kD = kD;
+        flywheelConfig.Slot0.kV = kV;
         flywheelConfig.MotorOutput.Inverted = ShooterConstants.FLYWHEEL_LEADER_INVERTED
                 ? InvertedValue.Clockwise_Positive
                 : InvertedValue.CounterClockwise_Positive;

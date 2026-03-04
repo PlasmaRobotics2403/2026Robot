@@ -61,6 +61,8 @@ public final class Constants {
 
         public static final double FLYWHEEL_DEFAULT_RPS = 60.0;
         public static final double FLYWHEEL_SPEED_TOLERANCE_RPS = 2.0;
+        public static final String FLYWHEEL_TARGET_RPS_DASHBOARD_KEY = "Shooter/Flywheel/TargetRps";
+        public static final double FLYWHEEL_TARGET_RPS_DASHBOARD_DEFAULT = FLYWHEEL_DEFAULT_RPS;
 
         public static final double HOOD_KP = 8.0;
         public static final double HOOD_KI = 0.0;

@@ -9,11 +9,14 @@ public interface VisionIO {
     class VisionIOInputs {
         public boolean connected = false;
         public TargetObservation latestTargetObservation = new TargetObservation(new Rotation2d(), new Rotation2d());
+        public TaggedTargetObservation[] taggedTargetObservations = new TaggedTargetObservation[0];
         public PoseObservation[] poseObservations = new PoseObservation[0];
         public int[] tagIds = new int[0];
     }
 
     record TargetObservation(Rotation2d tx, Rotation2d ty) {}
+
+    record TaggedTargetObservation(int tagId, Rotation2d tx, Rotation2d ty) {}
 
     record PoseObservation(
             double timestamp,

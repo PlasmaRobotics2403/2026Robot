@@ -85,6 +85,8 @@ public class Drive extends SubsystemBase implements Vision.VisionConsumer {
         return mapleSimConfig = DriveTrainSimulationConfig.Default()
                 .withRobotMass(Kilograms.of(ROBOT_MASS_KG))
                 .withCustomModuleTranslations(getModuleTranslations())
+                // 26x26 frame with standard bumpers => ~32x32 overall collision box in simulation.
+                .withBumperSize(Inches.of(32), Inches.of(32))
                 .withGyro(COTS.ofPigeon2())
                 .withSwerveModule(new SwerveModuleSimulationConfig(
                         DCMotor.getKrakenX60(1),
@@ -297,7 +299,9 @@ public class Drive extends SubsystemBase implements Vision.VisionConsumer {
     }
 
     public void resetOdometry(Pose2d pose) {
+        DriverStation.reportWarning("reset swerve heading", true);
         resetSimulationPoseCallBack.accept(pose);
+        // pose = new Pose2d(pose.getX(), pose.getY(), Rotation2d.k180deg);
         poseEstimator.resetPosition(rawGyroRotation, getModulePositions(), pose);
     }
 

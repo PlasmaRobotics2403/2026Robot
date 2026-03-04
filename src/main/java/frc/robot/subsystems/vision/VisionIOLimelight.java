@@ -22,6 +22,7 @@ public class VisionIOLimelight implements VisionIO {
     private final DoubleSubscriber latencySubscriber;
     private final DoubleSubscriber txSubscriber;
     private final DoubleSubscriber tySubscriber;
+    private final DoubleSubscriber tidSubscriber;
     private final DoubleArraySubscriber megatag1Subscriber;
     private final DoubleArraySubscriber megatag2Subscriber;
 
@@ -33,6 +34,7 @@ public class VisionIOLimelight implements VisionIO {
         latencySubscriber = table.getDoubleTopic("tl").subscribe(0.0);
         txSubscriber = table.getDoubleTopic("tx").subscribe(0.0);
         tySubscriber = table.getDoubleTopic("ty").subscribe(0.0);
+        tidSubscriber = table.getDoubleTopic("tid").subscribe(-1.0);
         megatag1Subscriber = table.getDoubleArrayTopic("botpose_wpiblue").subscribe(new double[] {});
         megatag2Subscriber = table.getDoubleArrayTopic("botpose_orb_wpiblue").subscribe(new double[] {});
     }
@@ -43,6 +45,15 @@ public class VisionIOLimelight implements VisionIO {
 
         inputs.latestTargetObservation = new TargetObservation(
                 Rotation2d.fromDegrees(txSubscriber.get()), Rotation2d.fromDegrees(tySubscriber.get()));
+        int tagId = (int) tidSubscriber.get();
+        if (tagId > 0) {
+            inputs.taggedTargetObservations = new TaggedTargetObservation[] {
+                new TaggedTargetObservation(
+                        tagId, Rotation2d.fromDegrees(txSubscriber.get()), Rotation2d.fromDegrees(tySubscriber.get()))
+            };
+        } else {
+            inputs.taggedTargetObservations = new TaggedTargetObservation[0];
+        }
 
         // Update orientation for MegaTag 2
         orientationPublisher.accept(new double[] {rotationSupplier.get().getDegrees(), 0.0, 0.0, 0.0, 0.0, 0.0});

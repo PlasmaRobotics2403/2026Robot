@@ -4,7 +4,7 @@ import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
-import com.ctre.phoenix6.controls.MotionMagicVoltage;
+import com.ctre.phoenix6.controls.PositionVoltage;
 import com.ctre.phoenix6.controls.VoltageOut;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.NeutralModeValue;
@@ -30,17 +30,19 @@ public class TestTurretSubsystem extends SubsystemBase {
     public static final double GEAR_RATIO = 18.5;
 
     private static final String DASHBOARD_PID_PREFIX = "Turret PID/";
+    private static final String FOLLOW_OFFSET_DASHBOARD_KEY = "Turret/Follow/OffsetDeg";
 
     private static final double POSITION_TOLERANCE_RAD = Units.degreesToRadians(1.0);
 
-    public final double MIN_ANGLE_RAD = Units.degreesToRadians(-180);
-    public final double MAX_ANGLE_RAD = Units.degreesToRadians(180);
+    public final double MIN_ANGLE_RAD = Units.degreesToRadians(-160);
+    public final double MAX_ANGLE_RAD = Units.degreesToRadians(160);
 
     private double targetAngleRad = 0.0;
     private boolean controlEnabled = false;
     private double lastDashboardP = TurretConstants.kP;
     private double lastDashboardI = TurretConstants.kI;
     private double lastDashboardD = TurretConstants.kD;
+    private double lastDashboardV = TurretConstants.kV;
     private final TalonFX motor = new TalonFX(TALON_ID, new CANBus(CAN_BUS));
     private final TalonFXConfiguration config = new TalonFXConfiguration();
 
@@ -50,7 +52,8 @@ public class TestTurretSubsystem extends SubsystemBase {
     private final StatusSignal<Current> supplyCurrent = motor.getSupplyCurrent();
 
     private final VoltageOut voltageRequest = new VoltageOut(0.0);
-    private final MotionMagicVoltage motionMagicRequest = new MotionMagicVoltage(0.0);
+    private final PositionVoltage positionRequest = new PositionVoltage(0.0);
+    private double lastCommandedRotorRotations = 0.0;
 
     public TestTurretSubsystem() {
         motor.setPosition(0);
@@ -79,6 +82,8 @@ public class TestTurretSubsystem extends SubsystemBase {
         SmartDashboard.putNumber(DASHBOARD_PID_PREFIX + "kI", TurretConstants.kI);
         SmartDashboard.putNumber(DASHBOARD_PID_PREFIX + "kD", TurretConstants.kD);
         SmartDashboard.putNumber(DASHBOARD_PID_PREFIX + "kV", TurretConstants.kV);
+        SmartDashboard.putNumber(
+                FOLLOW_OFFSET_DASHBOARD_KEY, SmartDashboard.getNumber(FOLLOW_OFFSET_DASHBOARD_KEY, 0.0));
 
         Logger.recordOutput("Turret/Mode", Constants.currentMode.toString());
     }
@@ -92,21 +97,23 @@ public class TestTurretSubsystem extends SubsystemBase {
         double dashD = SmartDashboard.getNumber(DASHBOARD_PID_PREFIX + "kD", TurretConstants.kD);
         double dashV = SmartDashboard.getNumber(DASHBOARD_PID_PREFIX + "kV", TurretConstants.kV);
 
-        if (dashP != lastDashboardP || dashI != lastDashboardI || dashD != lastDashboardD) {
+        if (dashP != lastDashboardP || dashI != lastDashboardI || dashD != lastDashboardD || dashV != lastDashboardV) {
             config.Slot0.kP = dashP;
             config.Slot0.kI = dashI;
             config.Slot0.kD = dashD;
+            config.Slot0.kV = dashV;
             motor.getConfigurator().apply(config);
 
             lastDashboardP = dashP;
             lastDashboardI = dashI;
             lastDashboardD = dashD;
+            lastDashboardV = dashV;
         }
 
         Logger.recordOutput("Turret/PID/kP", lastDashboardP);
         Logger.recordOutput("Turret/PID/kI", lastDashboardI);
         Logger.recordOutput("Turret/PID/kD", lastDashboardD);
-        Logger.recordOutput("Turret/PID/kV", dashV);
+        Logger.recordOutput("Turret/PID/kV", lastDashboardV);
 
         Logger.recordOutput("Turret/velocityRps", getVelocityRotationsPerSecond());
         if (DashboardThrottle.shouldPublish("Turret/Dashboard", 0.1)) {
@@ -114,7 +121,7 @@ public class TestTurretSubsystem extends SubsystemBase {
             SmartDashboard.putNumber(DASHBOARD_PID_PREFIX + "Active kP", lastDashboardP);
             SmartDashboard.putNumber(DASHBOARD_PID_PREFIX + "Active kI", lastDashboardI);
             SmartDashboard.putNumber(DASHBOARD_PID_PREFIX + "Active kD", lastDashboardD);
-            SmartDashboard.putNumber(DASHBOARD_PID_PREFIX + "Active kV", dashV);
+            SmartDashboard.putNumber(DASHBOARD_PID_PREFIX + "Active kV", lastDashboardV);
             SmartDashboard.putNumber(DASHBOARD_PID_PREFIX + "PID Output", motor.get());
         }
         Logger.recordOutput("Turret/PositionRot", getPositionRotations());
@@ -124,14 +131,13 @@ public class TestTurretSubsystem extends SubsystemBase {
 
         double angleDeg = Units.radiansToDegrees(getPositionRadians());
         Logger.recordOutput("Turret/AngleDeg", angleDeg);
-        if (DashboardThrottle.shouldPublish("Turret/Angle", 0.1)) {
-            SmartDashboard.putNumber("Turret/AngleDeg", angleDeg);
-        }
+        SmartDashboard.putNumber("Turret/AngleDeg", angleDeg);
 
         Logger.recordOutput("Turret/ClosedLoopEnabled", controlEnabled);
         Logger.recordOutput("Turret/TargetAngleRad", targetAngleRad);
         Logger.recordOutput("Turret/TargetAngleDeg", Units.radiansToDegrees(targetAngleRad));
         Logger.recordOutput("Turret/AngleErrorRad", targetAngleRad - getPositionRadians());
+        Logger.recordOutput("Turret/CommandedRotorRotations", lastCommandedRotorRotations);
 
         if (DashboardThrottle.shouldPublish("Turret/Target", 0.1)) {
             SmartDashboard.putNumber("Turret/TargetAngleDeg", Units.radiansToDegrees(targetAngleRad));
@@ -149,7 +155,8 @@ public class TestTurretSubsystem extends SubsystemBase {
         controlEnabled = true;
 
         double rotorRotations = Units.radiansToRotations(targetAngleRad) * GEAR_RATIO;
-        motor.setControl(motionMagicRequest.withPosition(rotorRotations));
+        lastCommandedRotorRotations = rotorRotations;
+        motor.setControl(positionRequest.withPosition(rotorRotations));
     }
 
     /** Returns the turret target angle in radians (post-gearbox). */

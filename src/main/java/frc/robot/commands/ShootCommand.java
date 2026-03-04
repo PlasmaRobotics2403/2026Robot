@@ -18,9 +18,10 @@ public class ShootCommand extends Command {
 
     @Override
     public void execute() {
-        double flywheelDuty = SmartDashboard.getNumber(
-                ShooterConstants.FLYWHEEL_DUTY_DASHBOARD_KEY, ShooterConstants.FLYWHEEL_DUTY_DASHBOARD_DEFAULT);
-        shooter.runFlywheelDutyCycle(flywheelDuty);
+        double flywheelTargetRps = SmartDashboard.getNumber(
+                ShooterConstants.FLYWHEEL_TARGET_RPS_DASHBOARD_KEY,
+                ShooterConstants.FLYWHEEL_TARGET_RPS_DASHBOARD_DEFAULT);
+        shooter.runFlywheelVelocity(flywheelTargetRps);
         double hoodTargetRotations = SmartDashboard.getNumber(
                 ShooterConstants.HOOD_TARGET_DASHBOARD_KEY, ShooterConstants.HOOD_TARGET_DASHBOARD_DEFAULT_ROTATIONS);
         shooter.setHoodPositionRotations(hoodTargetRotations);

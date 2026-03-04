@@ -101,7 +101,7 @@ public class IntakeSubsystem extends SubsystemBase {
         SmartDashboard.putNumber(PIVOT_PID_DASHBOARD_PREFIX + "kD", pivotPidD);
         pivotMotor.setPosition(0);
         BaseStatusSignal.refreshAll(pivotPosition, pivotVelocity, pivotAppliedVolts, pivotSupplyCurrent);
-        pivotTargetRad = getPivotPositionRadians();
+        pivotTargetRad = 0;
         SmartDashboard.putNumber("Intake/Pivot/PID/TargetDeg", Units.radiansToDegrees(pivotTargetRad));
         pivotPid.reset();
     }

@@ -3,6 +3,7 @@ package frc.robot.subsystems.vision;
 import static frc.robot.subsystems.vision.VisionConstants.angularStdDevBaseline;
 import static frc.robot.subsystems.vision.VisionConstants.angularStdDevMegatag2Factor;
 import static frc.robot.subsystems.vision.VisionConstants.aprilTagLayout;
+import static frc.robot.subsystems.vision.VisionConstants.cameraLocalizationEnabled;
 import static frc.robot.subsystems.vision.VisionConstants.cameraStdDevFactors;
 import static frc.robot.subsystems.vision.VisionConstants.linearStdDevBaseline;
 import static frc.robot.subsystems.vision.VisionConstants.linearStdDevMegatag2Factor;
@@ -22,6 +23,7 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.subsystems.vision.VisionIO.PoseObservationType;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 import org.littletonrobotics.junction.Logger;
 
 public class Vision extends SubsystemBase {
@@ -50,6 +52,19 @@ public class Vision extends SubsystemBase {
         return inputs[cameraIndex].latestTargetObservation.tx();
     }
 
+    public boolean hasAnyTarget(int cameraIndex) {
+        return inputs[cameraIndex].tagIds.length > 0;
+    }
+
+    public Optional<Rotation2d> getTargetX(int cameraIndex, int tagId) {
+        for (var targetObservation : inputs[cameraIndex].taggedTargetObservations) {
+            if (targetObservation.tagId() == tagId) {
+                return Optional.of(targetObservation.tx());
+            }
+        }
+        return Optional.empty();
+    }
+
     @Override
     public void periodic() {
         for (int i = 0; i < io.length; i++) {
@@ -64,6 +79,10 @@ public class Vision extends SubsystemBase {
 
         for (int cameraIndex = 0; cameraIndex < io.length; cameraIndex++) {
             disconnectedAlerts[cameraIndex].set(!inputs[cameraIndex].connected);
+            boolean localizationEnabled =
+                    cameraIndex >= cameraLocalizationEnabled.length || cameraLocalizationEnabled[cameraIndex];
+            Logger.recordOutput(
+                    "Vision/Camera" + Integer.toString(cameraIndex) + "/LocalizationEnabled", localizationEnabled);
 
             List<Pose3d> tagPoses = new LinkedList<>();
             List<Pose3d> robotPoses = new LinkedList<>();
@@ -109,10 +128,12 @@ public class Vision extends SubsystemBase {
                     angularStdDev *= cameraStdDevFactors[cameraIndex];
                 }
 
-                consumer.accept(
-                        observation.pose().toPose2d(),
-                        observation.timestamp(),
-                        VecBuilder.fill(linearStdDev, linearStdDev, angularStdDev));
+                if (localizationEnabled) {
+                    consumer.accept(
+                            observation.pose().toPose2d(),
+                            observation.timestamp(),
+                            VecBuilder.fill(linearStdDev, linearStdDev, angularStdDev));
+                }
             }
 
             Logger.recordOutput(

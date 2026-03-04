@@ -66,8 +66,10 @@ public class RobotContainer {
                         new ModuleIOTalonFX(TunerConstants.BackLeft),
                         new ModuleIOTalonFX(TunerConstants.BackRight),
                         (robotPose) -> {});
-                vision = new Vision(drive, new VisionIOPhotonVision(camera0Name, robotToCamera0));
-                // new VisionIOPhotonVision(camera1Name, robotToCamera1));
+                vision = new Vision(
+                        drive,
+                        new VisionIOPhotonVision(camera0Name, robotToCamera0),
+                        new VisionIOPhotonVision(camera1Name, robotToCamera1));
                 shooter = new Shooter(new ShooterIOTalonFX());
                 break;
 
@@ -123,8 +125,6 @@ public class RobotContainer {
         drive.setDefaultCommand(DriveCommands.joystickDrive(
                 drive, () -> -controller.getLeftY(), () -> -controller.getLeftX(), () -> -controller.getRightX()));
 
-        controller.x().onTrue(Commands.runOnce(drive::stopWithX, drive));
-
         controller
                 .start()
                 .onTrue(Commands.runOnce(() ->
@@ -136,6 +136,7 @@ public class RobotContainer {
         controller.a().onTrue(new IntakeStowCommand(intake));
 
         controller.b().whileTrue(new TestTurretFollowCommand(testTurret, vision));
+        controller.y().whileTrue(new TestTurretFollowCommand(testTurret, vision, 0, 18));
 
         controller.leftBumper().whileTrue(new ShootCommand(shooter));
 
@@ -153,6 +154,7 @@ public class RobotContainer {
     }
 
     public void resetSimulation() {
+        // TODO see why this is running later
         if (Constants.currentMode != Constants.Mode.SIM) return;
 
         drive.resetOdometry(new Pose2d(3, 3, new Rotation2d()));
