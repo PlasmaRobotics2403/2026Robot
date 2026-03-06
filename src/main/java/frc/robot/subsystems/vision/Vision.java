@@ -24,6 +24,8 @@ import frc.robot.subsystems.vision.VisionIO.PoseObservationType;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.littletonrobotics.junction.Logger;
 
 public class Vision extends SubsystemBase {
@@ -63,6 +65,20 @@ public class Vision extends SubsystemBase {
             }
         }
         return Optional.empty();
+    }
+
+    public Optional<Rotation2d> getTargetX(int cameraIndex, int... tagIds) {
+        Set<Integer> allowedIds = java.util.Arrays.stream(tagIds).boxed().collect(Collectors.toSet());
+        Rotation2d bestTx = null;
+        for (var targetObservation : inputs[cameraIndex].taggedTargetObservations) {
+            if (!allowedIds.contains(targetObservation.tagId())) {
+                continue;
+            }
+            if (bestTx == null || Math.abs(targetObservation.tx().getRadians()) < Math.abs(bestTx.getRadians())) {
+                bestTx = targetObservation.tx();
+            }
+        }
+        return Optional.ofNullable(bestTx);
     }
 
     @Override

@@ -144,7 +144,7 @@ public class RobotContainer {
 
         controller.a().onTrue(new IntakeStowCommand(intake));
 
-        Command followCommand = new TestTurretFollowCommand(testTurret, vision);
+        Command followCommand = new TestTurretFollowCommand(testTurret, vision, drive::getPose);
         Command flipCommand = new TurretFlipCommand(testTurret);
 
         Command followFlipCommand = Commands.repeatingSequence(
