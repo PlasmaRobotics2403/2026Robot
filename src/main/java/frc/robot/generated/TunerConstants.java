@@ -67,7 +67,7 @@ public class TunerConstants {
     public static final CANBus kCANBus = new CANBus("swerve", "./logs/example.hoot");
 
     // Theoretical free speed (m/s) at 12 V applied output
-    public static final LinearVelocity kSpeedAt12Volts = MetersPerSecond.of(5.12);
+    public static final LinearVelocity kSpeedAt12Volts = MetersPerSecond.of(16.8);
 
     private static final double kCoupleRatio = 3.857142857142857;
 

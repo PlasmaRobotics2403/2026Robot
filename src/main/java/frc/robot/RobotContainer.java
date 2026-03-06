@@ -18,6 +18,7 @@ import frc.robot.commands.IntakeStowCommand;
 import frc.robot.commands.RunIndexterDutyCycle;
 import frc.robot.commands.ShootCommand;
 import frc.robot.commands.TestTurretFollowCommand;
+import frc.robot.commands.TurretFlipCommand;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.IndexerSubsystem;
 import frc.robot.subsystems.IntakeSubsystem;
@@ -39,6 +40,7 @@ import frc.robot.subsystems.vision.VisionIOPhotonVision;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
+import org.ironmaple.simulation.seasonspecific.rebuilt2026.Arena2026Rebuilt;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
@@ -74,6 +76,7 @@ public class RobotContainer {
                 break;
 
             case SIM:
+                SimulatedArena.overrideInstance(new Arena2026Rebuilt(true));
                 driveSimulation =
                         new SwerveDriveSimulation(Drive.getMapleSimConfig(), new Pose2d(3, 3, new Rotation2d()));
                 SimulatedArena.getInstance().addDriveTrainSimulation(driveSimulation);
@@ -130,13 +133,24 @@ public class RobotContainer {
                 .onTrue(Commands.runOnce(() ->
                                 drive.resetOdometry(new Pose2d(drive.getPose().getTranslation(), new Rotation2d())))
                         .ignoringDisable(true));
-
+        controller
+                .leftTrigger()
+                .whileTrue(DriveCommands.joystickDrive(
+                        drive,
+                        () -> -controller.getLeftY() * 0.5,
+                        () -> -controller.getLeftX() * 0.5,
+                        () -> -controller.getRightX() * 0.5));
         controller.rightTrigger().whileTrue(new IntakeOutCommand(intake));
 
         controller.a().onTrue(new IntakeStowCommand(intake));
 
-        controller.b().whileTrue(new TestTurretFollowCommand(testTurret, vision));
-        controller.y().whileTrue(new TestTurretFollowCommand(testTurret, vision, 0, 18));
+        Command followCommand = new TestTurretFollowCommand(testTurret, vision);
+        Command flipCommand = new TurretFlipCommand(testTurret);
+
+        Command followFlipCommand = Commands.repeatingSequence(
+                followCommand.until(testTurret::isAtLimit), flipCommand, Commands.waitSeconds(1));
+
+        controller.y().whileTrue(followFlipCommand);
 
         controller.leftBumper().whileTrue(new ShootCommand(shooter));
 
@@ -167,5 +181,16 @@ public class RobotContainer {
         SimulatedArena.getInstance().simulationPeriodic();
         Logger.recordOutput("FieldSimulation/RobotPosition", driveSimulation.getSimulatedDriveTrainPose());
         Logger.recordOutput("FieldSimulation/Fuel", SimulatedArena.getInstance().getGamePiecesArrayByType("Fuel"));
+    }
+
+    public Pose2d getSimulationPose() {
+        if (driveSimulation == null) {
+            return drive.getPose();
+        }
+        return driveSimulation.getSimulatedDriveTrainPose();
+    }
+
+    public Pose2d getDrivePose() {
+        return drive.getPose();
     }
 }

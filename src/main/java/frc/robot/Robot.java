@@ -1,5 +1,6 @@
 package frc.robot;
 
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.wpilibj.Threads;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
@@ -108,5 +109,13 @@ public class Robot extends LoggedRobot {
     @Override
     public void simulationPeriodic() {
         robotContainer.updateSimulation();
+        Pose2d simPose = robotContainer.getSimulationPose();
+        Pose2d odometryPose = robotContainer.getDrivePose();
+        Logger.recordOutput("FieldSimulation/OdometryPose", odometryPose);
+        Logger.recordOutput(
+                "FieldSimulation/PoseErrorMeters", simPose.getTranslation().getDistance(odometryPose.getTranslation()));
+        Logger.recordOutput(
+                "FieldSimulation/PoseErrorDeg",
+                simPose.getRotation().minus(odometryPose.getRotation()).getDegrees());
     }
 }

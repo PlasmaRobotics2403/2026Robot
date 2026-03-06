@@ -36,7 +36,10 @@ public class Module {
         io.updateInputs(inputs);
         Logger.processInputs("Drive/Module" + Integer.toString(index), inputs);
 
-        int sampleCount = inputs.odometryTimestamps.length;
+        int sampleCount = Math.min(
+                inputs.odometryTimestamps.length,
+                Math.min(inputs.odometryDrivePositionsRad.length, inputs.odometryTurnPositions.length));
+        Logger.recordOutput("Drive/Module" + Integer.toString(index) + "/OdometrySampleCount", sampleCount);
         odometryPositions = new SwerveModulePosition[sampleCount];
         for (int i = 0; i < sampleCount; i++) {
             double positionMeters = inputs.odometryDrivePositionsRad[i] * constants.WheelRadius;
