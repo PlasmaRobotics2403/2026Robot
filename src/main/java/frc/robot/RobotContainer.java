@@ -127,6 +127,7 @@ public class RobotContainer {
     private void configureButtonBindings() {
         drive.setDefaultCommand(DriveCommands.joystickDrive(
                 drive, () -> -controller.getLeftY(), () -> -controller.getLeftX(), () -> -controller.getRightX()));
+        testTurret.setDefaultCommand(new TestTurretFollowCommand(testTurret, vision, drive::getPose));
 
         controller
                 .start()
@@ -143,14 +144,7 @@ public class RobotContainer {
         controller.rightTrigger().whileTrue(new IntakeOutCommand(intake));
 
         controller.a().onTrue(new IntakeStowCommand(intake));
-
-        Command followCommand = new TestTurretFollowCommand(testTurret, vision, drive::getPose);
-        Command flipCommand = new TurretFlipCommand(testTurret);
-
-        Command followFlipCommand = Commands.repeatingSequence(
-                followCommand.until(testTurret::isAtLimit), flipCommand, Commands.waitSeconds(1));
-
-        controller.y().whileTrue(followFlipCommand);
+        controller.y().onTrue(new TurretFlipCommand(testTurret));
 
         controller.leftBumper().whileTrue(new ShootCommand(shooter));
 

@@ -13,6 +13,7 @@ import frc.robot.subsystems.vision.Vision;
 import frc.robot.util.TurretGridSelector;
 import frc.robot.util.TurretGridSelector.GridTarget;
 import frc.robot.util.TurretGridSelector.GridZone;
+import frc.robot.util.TurretGridSelector.TargetType;
 import java.util.Optional;
 import java.util.function.Supplier;
 import org.littletonrobotics.junction.Logger;
@@ -53,34 +54,49 @@ public class TestTurretFollowCommand extends Command {
         double followOffsetRad = Units.degreesToRadians(followOffsetDeg);
         Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
         Pose2d robotPose = robotPoseSupplier.get();
-        GridTarget gridTarget = TurretGridSelector.select(robotPose, alliance, previousZone);
+        GridTarget gridTarget = TurretGridSelector.select(robotPose, previousZone);
         previousZone = Optional.of(gridTarget.zone());
 
-        Rotation2d fieldToTag = new Rotation2d(
-                gridTarget.targetPose().getX() - robotPose.getX(),
-                gridTarget.targetPose().getY() - robotPose.getY());
-        Rotation2d poseAimAngle = fieldToTag.minus(robotPose.getRotation());
-        Optional<Rotation2d> txForFace = vision.getTargetX(cameraIndex, gridTarget.trimTagIds());
-        double txTrimRad = txForFace.map(Rotation2d::getRadians).orElse(0.0);
+        Rotation2d fieldToAimPoint = new Rotation2d(
+                gridTarget.fieldAimPoint().getX() - robotPose.getX(),
+                gridTarget.fieldAimPoint().getY() - robotPose.getY());
+        Rotation2d poseAimAngle = fieldToAimPoint.minus(robotPose.getRotation());
+
+        Optional<Rotation2d> txForTarget = Optional.empty();
+        if (gridTarget.targetType() == TargetType.TAG) {
+            txForTarget = vision.getTargetX(cameraIndex, gridTarget.trimTagIds());
+        }
+        double txTrimRad = txForTarget.map(Rotation2d::getRadians).orElse(0.0);
         double targetAngleRad = MathUtil.angleModulus(poseAimAngle.getRadians() + txTrimRad - followOffsetRad);
 
         Logger.recordOutput("Turret/Follow/OffsetDeg", followOffsetDeg);
         Logger.recordOutput("Turret/Follow/Alliance", alliance.toString());
         Logger.recordOutput("Turret/Follow/Zone", gridTarget.zone().toString());
+        Logger.recordOutput("Turret/Follow/TargetType", gridTarget.targetType().toString());
         Logger.recordOutput("Turret/Follow/PrimaryTagId", gridTarget.primaryTagId());
         Logger.recordOutput("Turret/Follow/TrimTagIds", gridTarget.trimTagIds());
+        Logger.recordOutput(
+                "Turret/Follow/TargetPointX", gridTarget.fieldAimPoint().getX());
+        Logger.recordOutput(
+                "Turret/Follow/TargetPointY", gridTarget.fieldAimPoint().getY());
         Logger.recordOutput("Turret/Follow/PoseAimDeg", poseAimAngle.getDegrees());
-        Logger.recordOutput("Turret/Follow/TrimTagSeen", txForFace.isPresent());
-        Logger.recordOutput("Turret/Follow/TargetTagSeen", txForFace.isPresent());
-        Logger.recordOutput("Turret/Follow/UsingSpecificTag", true);
+        Logger.recordOutput("Turret/Follow/TrimTagSeen", txForTarget.isPresent());
+        Logger.recordOutput("Turret/Follow/TargetTagSeen", txForTarget.isPresent());
+        Logger.recordOutput("Turret/Follow/UsingSpecificTag", gridTarget.targetType() == TargetType.TAG);
         Logger.recordOutput("Turret/Follow/TxDeg", Units.radiansToDegrees(txTrimRad));
         Logger.recordOutput("Turret/Follow/CommandedAngleDeg", Units.radiansToDegrees(targetAngleRad));
 
         SmartDashboard.putString("Turret/Follow/Alliance", alliance.toString());
         SmartDashboard.putString("Turret/Follow/Zone", gridTarget.zone().toString());
+        SmartDashboard.putString(
+                "Turret/Follow/TargetType", gridTarget.targetType().toString());
         SmartDashboard.putNumber("Turret/Follow/PrimaryTagId", gridTarget.primaryTagId());
+        SmartDashboard.putNumber(
+                "Turret/Follow/TargetPointX", gridTarget.fieldAimPoint().getX());
+        SmartDashboard.putNumber(
+                "Turret/Follow/TargetPointY", gridTarget.fieldAimPoint().getY());
         SmartDashboard.putNumber("Turret/Follow/TxDeg", Units.radiansToDegrees(txTrimRad));
-        SmartDashboard.putBoolean("Turret/Follow/TrimTagSeen", txForFace.isPresent());
+        SmartDashboard.putBoolean("Turret/Follow/TrimTagSeen", txForTarget.isPresent());
 
         turret.setTargetAngleRadians(targetAngleRad);
     }
