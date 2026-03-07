@@ -1,11 +1,13 @@
 package frc.robot;
 
-import static frc.robot.subsystems.vision.VisionConstants.camera0Name;
-import static frc.robot.subsystems.vision.VisionConstants.camera1Name;
-import static frc.robot.subsystems.vision.VisionConstants.robotToCamera0;
-import static frc.robot.subsystems.vision.VisionConstants.robotToCamera1;
+import org.ironmaple.simulation.SimulatedArena;
+import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
+import org.ironmaple.simulation.seasonspecific.rebuilt2026.Arena2026Rebuilt;
+import org.littletonrobotics.junction.Logger;
+import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 import com.pathplanner.lib.auto.AutoBuilder;
+
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -17,8 +19,9 @@ import frc.robot.commands.IntakeOutCommand;
 import frc.robot.commands.IntakeStowCommand;
 import frc.robot.commands.RunIndexterDutyCycle;
 import frc.robot.commands.ShootCommand;
+import frc.robot.commands.ShootFromDistanceCommand;
+import frc.robot.commands.ShootTuningCommand;
 import frc.robot.commands.TestTurretFollowCommand;
-import frc.robot.commands.TurretFlipCommand;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.IndexerSubsystem;
 import frc.robot.subsystems.IntakeSubsystem;
@@ -35,14 +38,13 @@ import frc.robot.subsystems.shooter.ShooterIO;
 import frc.robot.subsystems.shooter.ShooterIOSim;
 import frc.robot.subsystems.shooter.ShooterIOTalonFX;
 import frc.robot.subsystems.vision.Vision;
+import static frc.robot.subsystems.vision.VisionConstants.camera0Name;
+import static frc.robot.subsystems.vision.VisionConstants.camera1Name;
+import static frc.robot.subsystems.vision.VisionConstants.robotToCamera0;
+import static frc.robot.subsystems.vision.VisionConstants.robotToCamera1;
 import frc.robot.subsystems.vision.VisionIO;
 import frc.robot.subsystems.vision.VisionIOPhotonVision;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
-import org.ironmaple.simulation.SimulatedArena;
-import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
-import org.ironmaple.simulation.seasonspecific.rebuilt2026.Arena2026Rebuilt;
-import org.littletonrobotics.junction.Logger;
-import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 public class RobotContainer {
     private final Vision vision;
@@ -56,6 +58,7 @@ public class RobotContainer {
     private final TestTurretSubsystem testTurret = new TestTurretSubsystem();
     private final IntakeSubsystem intake = new IntakeSubsystem();
 
+    
     private final LoggedDashboardChooser<Command> autoChooser;
 
     public RobotContainer() {
@@ -144,9 +147,16 @@ public class RobotContainer {
         controller.rightTrigger().whileTrue(new IntakeOutCommand(intake));
 
         controller.a().onTrue(new IntakeStowCommand(intake));
-        controller.y().onTrue(new TurretFlipCommand(testTurret));
+        controller
+                .b()
+                .whileTrue(new ShootFromDistanceCommand(
+                        shooter,
+                        () -> edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.getNumber(
+                                Constants.ShooterConstants.TUNING_DISTANCE_METERS_DASHBOARD_KEY,
+                                Constants.ShooterConstants.TUNING_DISTANCE_METERS_DASHBOARD_DEFAULT)));
+        controller.x().whileTrue(new ShootCommand(shooter));
 
-        controller.leftBumper().whileTrue(new ShootCommand(shooter));
+        controller.leftBumper().whileTrue(new ShootTuningCommand(shooter));
 
         controller
                 .rightBumper()

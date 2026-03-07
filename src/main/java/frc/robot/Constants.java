@@ -63,6 +63,8 @@ public final class Constants {
         public static final double FLYWHEEL_SPEED_TOLERANCE_RPS = 2.0;
         public static final String FLYWHEEL_TARGET_RPS_DASHBOARD_KEY = "Shooter/Flywheel/TargetRps";
         public static final double FLYWHEEL_TARGET_RPS_DASHBOARD_DEFAULT = FLYWHEEL_DEFAULT_RPS;
+        public static final String TUNING_FLYWHEEL_TARGET_RPS_DASHBOARD_KEY = "Shooter/Tuning/FlywheelTargetRps";
+        public static final double TUNING_FLYWHEEL_TARGET_RPS_DASHBOARD_DEFAULT = FLYWHEEL_DEFAULT_RPS;
 
         public static final double HOOD_KP = 8.0;
         public static final double HOOD_KI = 0.0;
@@ -76,8 +78,25 @@ public final class Constants {
         public static final double HOOD_ZERO_ANGLE_DEGREES = 0.0;
         public static final String HOOD_TARGET_DASHBOARD_KEY = "Shooter/Hood/TargetRotations";
         public static final double HOOD_TARGET_DASHBOARD_DEFAULT_ROTATIONS = 0.0;
+        public static final String HOOD_TARGET_DEGREES_DASHBOARD_KEY = "Shooter/Hood/TargetDeg";
+        public static final double HOOD_TARGET_DEGREES_DASHBOARD_DEFAULT = 0.0;
         public static final String FLYWHEEL_DUTY_DASHBOARD_KEY = "Shooter/Flywheel/TargetDuty";
         public static final double FLYWHEEL_DUTY_DASHBOARD_DEFAULT = 0.40;
+        public static final String TUNING_DISTANCE_METERS_DASHBOARD_KEY = "Shooter/Tuning/DistanceMeters";
+        public static final double TUNING_DISTANCE_METERS_DASHBOARD_DEFAULT = 2.0;
+        public static final String TUNING_HOOD_TARGET_DEG_DASHBOARD_KEY = "Shooter/Tuning/HoodTargetDeg";
+        public static final double TUNING_HOOD_TARGET_DEG_DASHBOARD_DEFAULT = HOOD_TARGET_DEGREES_DASHBOARD_DEFAULT;
+        public static final String TUNING_CURRENT_HOOD_DEG_DASHBOARD_KEY = "Shooter/Tuning/CurrentHoodDeg";
+        public static final String TUNING_CURRENT_FLYWHEEL_RPS_DASHBOARD_KEY = "Shooter/Tuning/CurrentFlywheelRps";
+        public static final String TUNING_PREDICTED_HOOD_DEG_DASHBOARD_KEY = "Shooter/Tuning/PredictedHoodDeg";
+        public static final String TUNING_PREDICTED_FLYWHEEL_RPS_DASHBOARD_KEY = "Shooter/Tuning/PredictedFlywheelRps";
+        public static final String TUNING_SAMPLE_ROW_DASHBOARD_KEY = "Shooter/Tuning/SampleRow";
+        public static final String TUNING_MODEL_DISTANCE_METERS_DASHBOARD_KEY = "Shooter/Tuning/ModelDistanceMeters";
+
+        public static final double HOOD_DISTANCE_SLOPE_DEG_PER_METER = 0.0;
+        public static final double HOOD_DISTANCE_INTERCEPT_DEG = 0.0;
+        public static final double FLYWHEEL_DISTANCE_SLOPE_RPS_PER_METER = 0.0;
+        public static final double FLYWHEEL_DISTANCE_INTERCEPT_RPS = FLYWHEEL_DEFAULT_RPS;
 
         public static final double SPINDEXER_FEED_DUTY = 0.50;
         public static final double SHOOTER_KICKER_FEED_DUTY = 0.50;

@@ -15,6 +15,7 @@ public class ShooterIOSim implements ShooterIO {
     private double hoodPositionRotations = 0.0;
     private double hoodVelocityRps = 0.0;
     private double hoodPositionTargetRotations = 0.0;
+
     private boolean hoodPositionControlEnabled = false;
 
     @Override
