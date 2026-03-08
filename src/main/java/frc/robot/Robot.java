@@ -61,6 +61,7 @@ public class Robot extends LoggedRobot {
         Threads.setCurrentThreadPriority(true, 99);
 
         CommandScheduler.getInstance().run();
+        robotContainer.updateDashboardField();
 
         Threads.setCurrentThreadPriority(false, 10);
     }
@@ -78,7 +79,7 @@ public class Robot extends LoggedRobot {
         autonomousCommand = robotContainer.getAutonomousCommand();
 
         if (autonomousCommand != null) {
-            autonomousCommand.schedule();
+            CommandScheduler.getInstance().schedule(autonomousCommand);
         }
     }
 

@@ -1,0 +1,43 @@
+{
+  "version": "2025.0",
+  "command": {
+    "type": "sequential",
+    "data": {
+      "commands": [
+        {
+          "type": "path",
+          "data": {
+            "pathName": "NearMidAuto"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "Spin Up Shooter"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "Wait For Shooter"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "Feed Shooter"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "Stop Shooter"
+          }
+        }
+      ]
+    }
+  },
+  "resetOdom": true,
+  "folder": null,
+  "choreoAuto": false
+}

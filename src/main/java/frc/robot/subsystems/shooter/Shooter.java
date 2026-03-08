@@ -257,6 +257,9 @@ public class Shooter extends SubsystemBase {
     }
 
     public void stopHood() {
+        if (controlMode == ControlMode.HOOD_DUTY || controlMode == ControlMode.HOOD_POSITION) {
+            controlMode = ControlMode.IDLE;
+        }
         hoodSetpointRotations = inputs.hoodPositionRotations;
         io.stopHood();
     }

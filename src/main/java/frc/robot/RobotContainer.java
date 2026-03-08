@@ -1,15 +1,19 @@
 package frc.robot;
 
-import org.ironmaple.simulation.SimulatedArena;
-import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
-import org.ironmaple.simulation.seasonspecific.rebuilt2026.Arena2026Rebuilt;
-import org.littletonrobotics.junction.Logger;
-import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
+import static frc.robot.subsystems.vision.VisionConstants.camera0Name;
+import static frc.robot.subsystems.vision.VisionConstants.camera1Name;
+import static frc.robot.subsystems.vision.VisionConstants.robotToCamera0;
+import static frc.robot.subsystems.vision.VisionConstants.robotToCamera1;
 
 import com.pathplanner.lib.auto.AutoBuilder;
-
+import com.pathplanner.lib.auto.NamedCommands;
+import com.pathplanner.lib.commands.PathPlannerAuto;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.DriverStation.Alliance;
+import edu.wpi.first.wpilibj.smartdashboard.Field2d;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
@@ -38,15 +42,20 @@ import frc.robot.subsystems.shooter.ShooterIO;
 import frc.robot.subsystems.shooter.ShooterIOSim;
 import frc.robot.subsystems.shooter.ShooterIOTalonFX;
 import frc.robot.subsystems.vision.Vision;
-import static frc.robot.subsystems.vision.VisionConstants.camera0Name;
-import static frc.robot.subsystems.vision.VisionConstants.camera1Name;
-import static frc.robot.subsystems.vision.VisionConstants.robotToCamera0;
-import static frc.robot.subsystems.vision.VisionConstants.robotToCamera1;
 import frc.robot.subsystems.vision.VisionIO;
 import frc.robot.subsystems.vision.VisionIOPhotonVision;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
+import frc.robot.util.TurretGridSelector;
+import org.ironmaple.simulation.SimulatedArena;
+import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
+import org.ironmaple.simulation.seasonspecific.rebuilt2026.Arena2026Rebuilt;
+import org.littletonrobotics.junction.Logger;
+import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 public class RobotContainer {
+    private static final String FAR_MID_SCORE_AUTO_FILE = "Far Mid Score Auto";
+    private static final String NEAR_MID_SCORE_AUTO_FILE = "Near Mid Score Auto";
+
     private final Vision vision;
     private final Drive drive;
     private final Shooter shooter;
@@ -57,8 +66,8 @@ public class RobotContainer {
 
     private final TestTurretSubsystem testTurret = new TestTurretSubsystem();
     private final IntakeSubsystem intake = new IntakeSubsystem();
+    private final Field2d field = new Field2d();
 
-    
     private final LoggedDashboardChooser<Command> autoChooser;
 
     public RobotContainer() {
@@ -113,7 +122,12 @@ public class RobotContainer {
                 break;
         }
 
+        registerNamedCommands();
+        SmartDashboard.putData("Field", field);
+
         autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
+        autoChooser.addOption("Far Mid Semantic Auto", buildAllianceCorrectFarMidAuto());
+        autoChooser.addOption("Near Mid Semantic Auto", buildAllianceCorrectNearMidAuto());
 
         autoChooser.addOption("Drive Wheel Radius Characterization", DriveCommands.wheelRadiusCharacterization(drive));
         autoChooser.addOption("Drive Simple FF Characterization", DriveCommands.feedforwardCharacterization(drive));
@@ -125,6 +139,94 @@ public class RobotContainer {
         autoChooser.addOption("Drive SysId (Dynamic Reverse)", drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
 
         configureButtonBindings();
+    }
+
+    private void registerNamedCommands() {
+        NamedCommands.registerCommand(
+                "Deploy Intake",
+                Commands.startEnd(
+                                () -> {
+                                    intake.setPivotTargetDegrees(Constants.IntakeConstants.DEPLOY_DEG);
+                                    intake.runRollersIn(Constants.IntakeConstants.ROLLER_PERCENT);
+                                },
+                                () -> {
+                                    intake.setPivotTargetDegrees(Constants.IntakeConstants.DEPLOY_DEG);
+                                    intake.stopRoller();
+                                },
+                                intake)
+                        .withName("Deploy Intake"));
+
+        NamedCommands.registerCommand(
+                "Stop Rollers",
+                Commands.runOnce(
+                                () -> {
+                                    intake.setPivotTargetDegrees(Constants.IntakeConstants.DEPLOY_DEG);
+                                    intake.stopRoller();
+                                },
+                                intake)
+                        .withName("Stop Rollers"));
+
+        NamedCommands.registerCommand(
+                "Spin Up Shooter",
+                Commands.runOnce(
+                                () -> {
+                                    shooter.runFlywheelDefaultSpeed();
+                                    shooter.setHoodAngleDegrees(
+                                            Constants.ShooterConstants.HOOD_TARGET_DEGREES_DASHBOARD_DEFAULT);
+                                },
+                                shooter)
+                        .withName("Spin Up Shooter"));
+
+        NamedCommands.registerCommand(
+                "Wait For Shooter", Commands.waitSeconds(1.0).withName("Wait For Shooter"));
+
+        NamedCommands.registerCommand(
+                "Feed Shooter",
+                Commands.deadline(
+                                Commands.waitSeconds(1.5),
+                                new RunIndexterDutyCycle(
+                                        indexer,
+                                        Constants.ShooterConstants.SPINDEXER_FEED_DUTY,
+                                        Constants.ShooterConstants.SHOOTER_KICKER_FEED_DUTY))
+                        .withName("Feed Shooter"));
+
+        NamedCommands.registerCommand(
+                "Stop Shooter",
+                Commands.runOnce(
+                                () -> {
+                                    shooter.stopFlywheel();
+                                    intake.stopRoller();
+                                    indexer.stopSpindexer();
+                                    indexer.stopShooterIndexer();
+                                },
+                                shooter,
+                                intake,
+                                indexer)
+                        .withName("Stop Shooter"));
+    }
+
+    private Command buildAllianceCorrectFarMidAuto() {
+        return Commands.defer(
+                        () -> {
+                            Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+                            String autoFile =
+                                    alliance == Alliance.Red ? NEAR_MID_SCORE_AUTO_FILE : FAR_MID_SCORE_AUTO_FILE;
+                            return new PathPlannerAuto(autoFile);
+                        },
+                        java.util.Set.of(drive, intake, shooter, indexer))
+                .withName("Far Mid Semantic Auto");
+    }
+
+    private Command buildAllianceCorrectNearMidAuto() {
+        return Commands.defer(
+                        () -> {
+                            Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+                            String autoFile =
+                                    alliance == Alliance.Red ? FAR_MID_SCORE_AUTO_FILE : NEAR_MID_SCORE_AUTO_FILE;
+                            return new PathPlannerAuto(autoFile);
+                        },
+                        java.util.Set.of(drive, intake, shooter, indexer))
+                .withName("Near Mid Semantic Auto");
     }
 
     private void configureButtonBindings() {
@@ -183,6 +285,7 @@ public class RobotContainer {
         if (Constants.currentMode != Constants.Mode.SIM) return;
 
         SimulatedArena.getInstance().simulationPeriodic();
+        field.setRobotPose(driveSimulation.getSimulatedDriveTrainPose());
         Logger.recordOutput("FieldSimulation/RobotPosition", driveSimulation.getSimulatedDriveTrainPose());
         Logger.recordOutput("FieldSimulation/Fuel", SimulatedArena.getInstance().getGamePiecesArrayByType("Fuel"));
     }
@@ -196,5 +299,16 @@ public class RobotContainer {
 
     public Pose2d getDrivePose() {
         return drive.getPose();
+    }
+
+    public void updateDashboardField() {
+        Pose2d robotPose = drive.getPose();
+        field.setRobotPose(robotPose);
+
+        Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+        Pose2d targetPose = TurretGridSelector.select(robotPose, alliance, java.util.Optional.empty())
+                .targetPose()
+                .toPose2d();
+        field.getObject("TurretTarget").setPose(targetPose);
     }
 }

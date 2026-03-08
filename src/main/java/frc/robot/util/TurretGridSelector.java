@@ -17,9 +17,12 @@ public final class TurretGridSelector {
     private static final ReefMapping BLUE_MAPPING = new ReefMapping(
             new Pose2d(4.5366686, 4.0346376, Rotation2d.kZero),
             Map.of(
-                    GridZone.LOW_Y, new GridTargetDefinition(18, new int[] {18, 27}),
-                    GridZone.CENTER, new GridTargetDefinition(26, new int[] {25, 26}),
-                    GridZone.HIGH_Y, new GridTargetDefinition(22, new int[] {21, 24})));
+                    GridZone.LOW_Y,
+                    new GridTargetDefinition(18, new int[] {18, 27}),
+                    GridZone.CENTER,
+                    new GridTargetDefinition(26, new int[] {25, 26}),
+                    GridZone.HIGH_Y,
+                    new GridTargetDefinition(22, new int[] {21, 24})));
 
     private static final ReefMapping RED_MAPPING = new ReefMapping(
             new Pose2d(12.0043702, 4.0346376, Rotation2d.kZero),
