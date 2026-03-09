@@ -27,14 +27,14 @@ public class TestTurretSubsystem extends SubsystemBase {
     public static final int TALON_ID = 20;
 
     public static final String CAN_BUS = "rio";
-    public static final double GEAR_RATIO = 18.5;
+    public static final double GEAR_RATIO = 25.714;
 
     private static final String DASHBOARD_PID_PREFIX = "Turret PID/";
     private static final String FOLLOW_OFFSET_DASHBOARD_KEY = "Turret/Follow/OffsetDeg";
 
     private static final double POSITION_TOLERANCE_RAD = Units.degreesToRadians(1.0);
 
-    public final double MIN_ANGLE_RAD = Units.degreesToRadians(-160);
+    public final double MIN_ANGLE_RAD = Units.degreesToRadians(-180);
     public final double MAX_ANGLE_RAD = Units.degreesToRadians(160);
 
     private double targetAngleRad = 0.0;

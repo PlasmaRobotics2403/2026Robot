@@ -18,7 +18,7 @@ public final class Constants {
     }
 
     public static final class IntakeConstants {
-        public static final double DEPLOY_DEG = 95.0;
+        public static final double DEPLOY_DEG = 102.0;
         public static final double STOW_DEG = 0.0;
         public static final double ROLLER_PERCENT = 0.5;
     }

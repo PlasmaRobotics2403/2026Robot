@@ -33,7 +33,10 @@ public final class TurretTargetingUtil {
 
         Optional<Rotation2d> txForTarget = vision.getTargetX(cameraIndex, gridTarget.trimTagIds());
         double txTrimRad = txForTarget.map(Rotation2d::getRadians).orElse(0.0);
-        double targetAngleRad = MathUtil.angleModulus(poseAimAngle.getRadians() + txTrimRad - followOffsetRad);
+        // Convert WPILib robot-relative angle (0=fwd, +CCW) into turret-native angle:
+        // clockwise positive and 0 = robot-left.
+        double thetaRobotRelativeRad = poseAimAngle.getRadians() + txTrimRad;
+        double targetAngleRad = MathUtil.angleModulus(Math.PI / 2.0 - thetaRobotRelativeRad + followOffsetRad);
 
         return new FollowSolution(gridTarget, poseAimAngle, txForTarget, txTrimRad, targetAngleRad);
     }
