@@ -34,8 +34,8 @@ public class TestTurretSubsystem extends SubsystemBase {
 
     private static final double POSITION_TOLERANCE_RAD = Units.degreesToRadians(1.0);
 
-    public final double MIN_ANGLE_RAD = Units.degreesToRadians(-180);
-    public final double MAX_ANGLE_RAD = Units.degreesToRadians(160);
+    public final double MIN_ANGLE_RAD = Units.degreesToRadians(TurretConstants.MIN_ANGLE_DEG);
+    public final double MAX_ANGLE_RAD = Units.degreesToRadians(TurretConstants.MAX_ANGLE_DEG);
 
     private double targetAngleRad = 0.0;
     private boolean controlEnabled = false;

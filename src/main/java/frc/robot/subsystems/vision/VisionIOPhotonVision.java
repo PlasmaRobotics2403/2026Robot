@@ -31,16 +31,19 @@ public class VisionIOPhotonVision implements VisionIO {
             if (result.hasTargets()) {
                 inputs.latestTargetObservation = new TargetObservation(
                         Rotation2d.fromDegrees(result.getBestTarget().getYaw()),
-                        Rotation2d.fromDegrees(result.getBestTarget().getPitch()));
+                        Rotation2d.fromDegrees(result.getBestTarget().getPitch()),
+                        Rotation2d.fromDegrees(result.getBestTarget().getYaw()));
                 taggedTargetObservations.clear();
                 for (var target : result.targets) {
                     taggedTargetObservations.add(new TaggedTargetObservation(
                             target.fiducialId,
                             Rotation2d.fromDegrees(target.getYaw()),
-                            Rotation2d.fromDegrees(target.getPitch())));
+                            Rotation2d.fromDegrees(target.getPitch()),
+                            Rotation2d.fromDegrees(target.getYaw())));
                 }
             } else {
-                inputs.latestTargetObservation = new TargetObservation(new Rotation2d(), new Rotation2d());
+                inputs.latestTargetObservation =
+                        new TargetObservation(new Rotation2d(), new Rotation2d(), new Rotation2d());
                 taggedTargetObservations.clear();
             }
 
@@ -69,7 +72,6 @@ public class VisionIOPhotonVision implements VisionIO {
 
             } else if (!result.targets.isEmpty()) {
                 var target = result.targets.get(0);
-
                 var tagPose = aprilTagLayout.getTagPose(target.fiducialId);
                 if (tagPose.isPresent()) {
                     Transform3d fieldToTarget = new Transform3d(

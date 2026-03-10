@@ -44,12 +44,17 @@ public class VisionIOLimelight implements VisionIO {
         inputs.connected = ((RobotController.getFPGATime() - latencySubscriber.getLastChange()) / 1000) < 250;
 
         inputs.latestTargetObservation = new TargetObservation(
-                Rotation2d.fromDegrees(txSubscriber.get()), Rotation2d.fromDegrees(tySubscriber.get()));
+                Rotation2d.fromDegrees(txSubscriber.get()),
+                Rotation2d.fromDegrees(tySubscriber.get()),
+                Rotation2d.fromDegrees(txSubscriber.get()));
         int tagId = (int) tidSubscriber.get();
         if (tagId > 0) {
             inputs.taggedTargetObservations = new TaggedTargetObservation[] {
                 new TaggedTargetObservation(
-                        tagId, Rotation2d.fromDegrees(txSubscriber.get()), Rotation2d.fromDegrees(tySubscriber.get()))
+                        tagId,
+                        Rotation2d.fromDegrees(txSubscriber.get()),
+                        Rotation2d.fromDegrees(tySubscriber.get()),
+                        Rotation2d.fromDegrees(txSubscriber.get()))
             };
         } else {
             inputs.taggedTargetObservations = new TaggedTargetObservation[0];

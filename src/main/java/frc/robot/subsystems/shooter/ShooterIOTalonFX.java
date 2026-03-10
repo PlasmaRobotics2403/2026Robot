@@ -103,7 +103,10 @@ public class ShooterIOTalonFX implements ShooterIO {
                 .withKA(ShooterConstants.HOOD_KA);
 
         tryUntilOk(5, () -> hoodMotor.getConfigurator().apply(hoodConfig, 0.25));
-        tryUntilOk(5, () -> hoodMotor.setPosition(Shooter.hoodDegreesToMotorRotations(1444.0), 0.25));
+        tryUntilOk(
+                5,
+                () -> hoodMotor.setPosition(
+                        Shooter.hoodDegreesToMotorRotations(ShooterConstants.HOOD_ZERO_ANGLE_DEGREES), 0.25));
 
         flywheelLeaderVelocity = flywheelLeaderMotor.getVelocity();
         flywheelLeaderAppliedVolts = flywheelLeaderMotor.getMotorVoltage();

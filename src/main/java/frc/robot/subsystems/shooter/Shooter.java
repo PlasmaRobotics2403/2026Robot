@@ -6,6 +6,7 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants.ShooterConstants;
 import java.util.Locale;
+import java.util.function.DoubleSupplier;
 import org.littletonrobotics.junction.Logger;
 
 public class Shooter extends SubsystemBase {
@@ -32,13 +33,36 @@ public class Shooter extends SubsystemBase {
     private double hoodPidI = ShooterConstants.HOOD_KI;
     private double hoodPidD = ShooterConstants.HOOD_KD;
     private boolean dashboardTargetsResetAfterBoot = false;
+    private final DoubleSupplier tuningDistanceSupplier;
 
     public Shooter(ShooterIO io) {
-        this(io, true);
+        this(
+                io,
+                () -> SmartDashboard.getNumber(
+                        ShooterConstants.TUNING_DISTANCE_METERS_DASHBOARD_KEY,
+                        ShooterConstants.TUNING_DISTANCE_METERS_DASHBOARD_DEFAULT),
+                true);
+    }
+
+    public Shooter(ShooterIO io, DoubleSupplier tuningDistanceSupplier) {
+        this(io, tuningDistanceSupplier, true);
     }
 
     Shooter(ShooterIO io, boolean initializeDashboard) {
+        this(
+                io,
+                () -> SmartDashboard.getNumber(
+                        ShooterConstants.TUNING_DISTANCE_METERS_DASHBOARD_KEY,
+                        ShooterConstants.TUNING_DISTANCE_METERS_DASHBOARD_DEFAULT),
+                initializeDashboard);
+    }
+
+    Shooter(ShooterIO io, DoubleSupplier tuningDistanceSupplier, boolean initializeDashboard) {
         this.io = io;
+        this.tuningDistanceSupplier = tuningDistanceSupplier;
+        this.hoodSetpointRotations = hoodDegreesToMotorRotations(ShooterConstants.HOOD_ZERO_ANGLE_DEGREES);
+
+        io.setHoodPositionRotations(hoodSetpointRotations);
 
         if (!initializeDashboard) {
             return;
@@ -64,6 +88,9 @@ public class Shooter extends SubsystemBase {
         SmartDashboard.putNumber(
                 ShooterConstants.TUNING_DISTANCE_METERS_DASHBOARD_KEY,
                 ShooterConstants.TUNING_DISTANCE_METERS_DASHBOARD_DEFAULT);
+        SmartDashboard.putNumber(
+                ShooterConstants.TUNING_TAG_DISTANCE_METERS_DASHBOARD_KEY,
+                ShooterConstants.TUNING_TAG_DISTANCE_METERS_DASHBOARD_DEFAULT);
         SmartDashboard.putNumber(
                 ShooterConstants.TUNING_HOOD_TARGET_DEG_DASHBOARD_KEY,
                 ShooterConstants.TUNING_HOOD_TARGET_DEG_DASHBOARD_DEFAULT);
@@ -140,6 +167,9 @@ public class Shooter extends SubsystemBase {
                 ShooterConstants.TUNING_DISTANCE_METERS_DASHBOARD_KEY,
                 ShooterConstants.TUNING_DISTANCE_METERS_DASHBOARD_DEFAULT);
         SmartDashboard.putNumber(
+                ShooterConstants.TUNING_TAG_DISTANCE_METERS_DASHBOARD_KEY,
+                ShooterConstants.TUNING_TAG_DISTANCE_METERS_DASHBOARD_DEFAULT);
+        SmartDashboard.putNumber(
                 ShooterConstants.TUNING_HOOD_TARGET_DEG_DASHBOARD_KEY,
                 ShooterConstants.TUNING_HOOD_TARGET_DEG_DASHBOARD_DEFAULT);
         SmartDashboard.putNumber(
@@ -149,9 +179,9 @@ public class Shooter extends SubsystemBase {
     }
 
     private void updateTuningDashboard() {
-        double tuningDistanceMeters = SmartDashboard.getNumber(
-                ShooterConstants.TUNING_DISTANCE_METERS_DASHBOARD_KEY,
-                ShooterConstants.TUNING_DISTANCE_METERS_DASHBOARD_DEFAULT);
+        double tuningDistanceMeters = tuningDistanceSupplier.getAsDouble();
+        SmartDashboard.putNumber(ShooterConstants.TUNING_DISTANCE_METERS_DASHBOARD_KEY, tuningDistanceMeters);
+        SmartDashboard.putNumber(ShooterConstants.TUNING_TAG_DISTANCE_METERS_DASHBOARD_KEY, tuningDistanceMeters);
         double tuningHoodTargetDeg = SmartDashboard.getNumber(
                 ShooterConstants.TUNING_HOOD_TARGET_DEG_DASHBOARD_KEY,
                 ShooterConstants.TUNING_HOOD_TARGET_DEG_DASHBOARD_DEFAULT);
@@ -171,6 +201,7 @@ public class Shooter extends SubsystemBase {
                 formatSampleRow(tuningDistanceMeters, tuningHoodTargetDeg, tuningFlywheelTargetRps));
 
         Logger.recordOutput("Shooter/Tuning/DistanceMeters", tuningDistanceMeters);
+        Logger.recordOutput("Shooter/Tuning/TagDistanceMeters", tuningDistanceMeters);
         Logger.recordOutput("Shooter/Tuning/HoodTargetDeg", tuningHoodTargetDeg);
         Logger.recordOutput("Shooter/Tuning/FlywheelTargetRps", tuningFlywheelTargetRps);
         Logger.recordOutput("Shooter/Tuning/PredictedHoodDeg", predictedHoodDeg);

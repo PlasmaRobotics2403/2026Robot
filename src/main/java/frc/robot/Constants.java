@@ -1,5 +1,9 @@
 package frc.robot;
 
+import edu.wpi.first.math.geometry.Rotation3d;
+import edu.wpi.first.math.geometry.Transform3d;
+import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.RobotBase;
 import frc.robot.util.RobotDeviceId;
 
@@ -24,6 +28,8 @@ public final class Constants {
     }
 
     public static final class TurretConstants {
+        private TurretConstants() {}
+
         public static final double kP = 4;
         public static final double kI = 0.0;
         public static final double kD = 0.0;
@@ -33,6 +39,26 @@ public final class Constants {
         public static final double kCruiseVelocityRps = 200.0;
         public static final double kAccelerationRpsPerSec = 400.0;
         public static final double kJerkRpsPerSec2 = 4000.0;
+
+        public static final double MIN_ANGLE_DEG = -130.0;
+        public static final double MAX_ANGLE_DEG = 145.0;
+        public static final Translation2d TURRET_PIVOT_FROM_ROBOT_CENTER =
+                new Translation2d(Units.inchesToMeters(-6.25), Units.inchesToMeters(-6.25));
+
+        // Camera calibration reference supplied by the user at turret angle -90 degrees (facing robot rear).
+        // We model the camera as rigidly attached to the turret with a fixed offset from the turret pivot.
+        public static final Transform3d TURRET_TO_CAMERA = new Transform3d(
+                Units.inchesToMeters(-11.628 - (-6.25)),
+                Units.inchesToMeters(-8.4846 - (-6.25)),
+                Units.inchesToMeters(19.6099),
+                new Rotation3d(0.0, Units.degreesToRadians(70.0), 0.0));
+
+        public static final double TAG_LOCK_ENTER_DEBOUNCE_SEC = 0.05; // 0.05
+        public static final double TAG_LOCK_EXIT_DEBOUNCE_SEC = 0.15; // 0.15
+
+        // Placeholder shuttle/feed field point until dedicated interpolation map is added.
+        public static final Translation2d DEFAULT_FEED_FIELD_POINT =
+                new Translation2d(Units.inchesToMeters(325.0), Units.inchesToMeters(120.0));
     }
 
     public static final class ShooterConstants {
@@ -51,11 +77,11 @@ public final class Constants {
         public static final double FLYWHEEL_SUPPLY_CURRENT_LIMIT = 40.0;
         public static final double HOOD_SUPPLY_CURRENT_LIMIT = 30.0;
 
-        public static final double FLYWHEEL_KP = 0.5;
+        public static final double FLYWHEEL_KP = 0.65;
         public static final double FLYWHEEL_KI = 0.0;
-        public static final double FLYWHEEL_KD = 0.0;
+        public static final double FLYWHEEL_KD = 0.03;
         public static final double FLYWHEEL_KS = 0.0;
-        public static final double FLYWHEEL_KV = 0.12; // volts per rps
+        public static final double FLYWHEEL_KV = 0.1; // volts per rps
         public static final double FLYWHEEL_KA = 0.0;
         public static final String FLYWHEEL_PID_DASHBOARD_PREFIX = "Shooter/Flywheel/PID/";
 
@@ -84,6 +110,9 @@ public final class Constants {
         public static final double FLYWHEEL_DUTY_DASHBOARD_DEFAULT = 0.40;
         public static final String TUNING_DISTANCE_METERS_DASHBOARD_KEY = "Shooter/Tuning/DistanceMeters";
         public static final double TUNING_DISTANCE_METERS_DASHBOARD_DEFAULT = 2.0;
+        public static final String TUNING_TAG_DISTANCE_METERS_DASHBOARD_KEY = "Shooter/Tuning/TagDistanceMeters";
+        public static final double TUNING_TAG_DISTANCE_METERS_DASHBOARD_DEFAULT =
+                TUNING_DISTANCE_METERS_DASHBOARD_DEFAULT;
         public static final String TUNING_HOOD_TARGET_DEG_DASHBOARD_KEY = "Shooter/Tuning/HoodTargetDeg";
         public static final double TUNING_HOOD_TARGET_DEG_DASHBOARD_DEFAULT = HOOD_TARGET_DEGREES_DASHBOARD_DEFAULT;
         public static final String TUNING_CURRENT_HOOD_DEG_DASHBOARD_KEY = "Shooter/Tuning/CurrentHoodDeg";

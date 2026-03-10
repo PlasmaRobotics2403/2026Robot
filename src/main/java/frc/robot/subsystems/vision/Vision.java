@@ -55,6 +55,10 @@ public class Vision extends SubsystemBase {
         return inputs[cameraIndex].latestTargetObservation.tx();
     }
 
+    public Rotation2d getTargetYaw(int cameraIndex) {
+        return inputs[cameraIndex].latestTargetObservation.yaw();
+    }
+
     public boolean hasAnyTarget(int cameraIndex) {
         return inputs[cameraIndex].tagIds.length > 0;
     }
@@ -63,6 +67,15 @@ public class Vision extends SubsystemBase {
         for (var targetObservation : inputs[cameraIndex].taggedTargetObservations) {
             if (targetObservation.tagId() == tagId) {
                 return Optional.of(targetObservation.tx());
+            }
+        }
+        return Optional.empty();
+    }
+
+    public Optional<Rotation2d> getTargetYaw(int cameraIndex, int tagId) {
+        for (var targetObservation : inputs[cameraIndex].taggedTargetObservations) {
+            if (targetObservation.tagId() == tagId) {
+                return Optional.of(targetObservation.yaw());
             }
         }
         return Optional.empty();
@@ -80,6 +93,20 @@ public class Vision extends SubsystemBase {
             }
         }
         return Optional.ofNullable(bestTx);
+    }
+
+    public Optional<Rotation2d> getTargetYaw(int cameraIndex, int... tagIds) {
+        Set<Integer> allowedIds = java.util.Arrays.stream(tagIds).boxed().collect(Collectors.toSet());
+        Rotation2d bestYaw = null;
+        for (var targetObservation : inputs[cameraIndex].taggedTargetObservations) {
+            if (!allowedIds.contains(targetObservation.tagId())) {
+                continue;
+            }
+            if (bestYaw == null || Math.abs(targetObservation.yaw().getRadians()) < Math.abs(bestYaw.getRadians())) {
+                bestYaw = targetObservation.yaw();
+            }
+        }
+        return Optional.ofNullable(bestYaw);
     }
 
     @Override

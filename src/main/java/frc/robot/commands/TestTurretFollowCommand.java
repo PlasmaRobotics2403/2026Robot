@@ -1,14 +1,18 @@
 package frc.robot.commands;
 
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
+import frc.robot.Constants.TurretConstants;
 import frc.robot.subsystems.TestTurretSubsystem;
 import frc.robot.subsystems.vision.Vision;
+import frc.robot.util.TurretGridSelector;
 import frc.robot.util.TurretGridSelector.GridTarget;
 import frc.robot.util.TurretGridSelector.GridZone;
 import frc.robot.util.TurretTargetingUtil;
@@ -18,12 +22,17 @@ import org.littletonrobotics.junction.Logger;
 
 public class TestTurretFollowCommand extends Command {
     private static final String kFollowOffsetDegKey = "Turret/Follow/OffsetDeg";
+    private static final String kUseFeedPointKey = "Turret/Follow/UseFeedPoint";
 
     private final TestTurretSubsystem turret;
     private final Vision vision;
     private final Supplier<Pose2d> robotPoseSupplier;
     private final int cameraIndex;
     private Optional<GridZone> previousZone = Optional.empty();
+    private final Debouncer tagLockEnter = new Debouncer(TurretConstants.TAG_LOCK_ENTER_DEBOUNCE_SEC);
+    private final Debouncer tagLockExit = new Debouncer(TurretConstants.TAG_LOCK_EXIT_DEBOUNCE_SEC);
+    private boolean cameraLockActive = false;
+    private Rotation2d lastYaw = new Rotation2d();
 
     public TestTurretFollowCommand(
             TestTurretSubsystem turret, Vision vision, Supplier<Pose2d> robotPoseSupplier, int cameraIndex) {
@@ -43,7 +52,12 @@ public class TestTurretFollowCommand extends Command {
         previousZone = Optional.empty();
         turret.setTargetAngleRadians(turret.getPositionRadians());
         SmartDashboard.putNumber(kFollowOffsetDegKey, SmartDashboard.getNumber(kFollowOffsetDegKey, 0.0));
+        SmartDashboard.putBoolean(kUseFeedPointKey, SmartDashboard.getBoolean(kUseFeedPointKey, false));
         SmartDashboard.putNumber("Turret/Follow/TxDeg", 0.0);
+        cameraLockActive = false;
+        lastYaw = new Rotation2d();
+        tagLockEnter.calculate(false);
+        tagLockExit.calculate(true);
     }
 
     @Override
@@ -52,13 +66,36 @@ public class TestTurretFollowCommand extends Command {
         double followOffsetRad = Units.degreesToRadians(followOffsetDeg);
         Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
         Pose2d robotPose = robotPoseSupplier.get();
-        TurretTargetingUtil.FollowSolution followSolution = TurretTargetingUtil.calculateFollowSolution(
-                robotPose, alliance, previousZone, vision, cameraIndex, followOffsetRad);
+        boolean useFeedPoint = SmartDashboard.getBoolean(kUseFeedPointKey, false);
+        TurretTargetingUtil.FollowSolution followSolution;
+        if (useFeedPoint) {
+            followSolution = TurretTargetingUtil.calculateFieldPointAimSolution(
+                    robotPose, TurretConstants.DEFAULT_FEED_FIELD_POINT);
+        } else {
+            GridTarget gridTarget = TurretGridSelector.select(robotPose, alliance, previousZone);
+            Optional<Rotation2d> rawYaw = vision.getTargetYaw(cameraIndex, gridTarget.trimTagIds());
+            if (rawYaw.isPresent()) {
+                lastYaw = rawYaw.get();
+            }
+
+            if (cameraLockActive) {
+                cameraLockActive = tagLockExit.calculate(rawYaw.isPresent());
+            } else {
+                cameraLockActive = tagLockEnter.calculate(rawYaw.isPresent());
+            }
+
+            Optional<Rotation2d> yawForTarget = cameraLockActive ? Optional.of(lastYaw) : Optional.empty();
+            followSolution = TurretTargetingUtil.calculateTagAimSolution(
+                    robotPose, gridTarget, yawForTarget, turret.getPositionRadians(), followOffsetRad, followOffsetRad);
+        }
+
         GridTarget gridTarget = followSolution.gridTarget();
-        previousZone = Optional.of(gridTarget.zone());
-        Pose2d targetPose2d = gridTarget.targetPose().toPose2d();
-        double txTrimRad = followSolution.txTrimRad();
-        double requestedTargetAngleRad = MathUtil.angleModulus(followSolution.targetAngleRad());
+        if (gridTarget != null) {
+            previousZone = Optional.of(gridTarget.zone());
+        }
+
+        double cameraYawRad = followSolution.cameraYawRad();
+        double requestedTargetAngleRad = MathUtil.angleModulus(followSolution.finalTargetAngleRad());
 
         TurretTargetingUtil.FlipPlan flipPlan = TurretTargetingUtil.planFlip(
                 turret.getPositionRadians(), requestedTargetAngleRad, turret.MIN_ANGLE_RAD, turret.MAX_ANGLE_RAD);
@@ -71,20 +108,30 @@ public class TestTurretFollowCommand extends Command {
 
         Logger.recordOutput("Turret/Follow/OffsetDeg", followOffsetDeg);
         Logger.recordOutput("Turret/Follow/Alliance", alliance.toString());
-        Logger.recordOutput("Turret/Follow/Zone", gridTarget.zone().toString());
-        Logger.recordOutput("Turret/Follow/TargetType", "TAG");
-        Logger.recordOutput("Turret/Follow/PrimaryTagId", gridTarget.primaryTagId());
-        Logger.recordOutput("Turret/Follow/TrimTagIds", gridTarget.trimTagIds());
-        Logger.recordOutput("Turret/Follow/TargetPointX", targetPose2d.getX());
-        Logger.recordOutput("Turret/Follow/TargetPointY", targetPose2d.getY());
+        Logger.recordOutput(
+                "Turret/Follow/Zone", gridTarget != null ? gridTarget.zone().toString() : "N/A");
+        Logger.recordOutput(
+                "Turret/Follow/TargetType", followSolution.targetType().toString());
+        Logger.recordOutput("Turret/Follow/PrimaryTagId", gridTarget != null ? gridTarget.primaryTagId() : -1);
+        Logger.recordOutput("Turret/Follow/TrimTagIds", gridTarget != null ? gridTarget.trimTagIds() : new int[0]);
+        Logger.recordOutput(
+                "Turret/Follow/TargetPointX", followSolution.targetPoint().getX());
+        Logger.recordOutput(
+                "Turret/Follow/TargetPointY", followSolution.targetPoint().getY());
         Logger.recordOutput(
                 "Turret/Follow/PoseAimDeg", followSolution.poseAimAngle().getDegrees());
         Logger.recordOutput(
-                "Turret/Follow/TrimTagSeen", followSolution.txForTarget().isPresent());
+                "Turret/Follow/TargetYawSeen", followSolution.yawForTarget().isPresent());
         Logger.recordOutput(
-                "Turret/Follow/TargetTagSeen", followSolution.txForTarget().isPresent());
-        Logger.recordOutput("Turret/Follow/UsingSpecificTag", true);
-        Logger.recordOutput("Turret/Follow/TxDeg", Units.radiansToDegrees(txTrimRad));
+                "Turret/Follow/UsingCameraAim",
+                followSolution.aimMode() == TurretTargetingUtil.AimMode.TAG_CAMERA_LOCK);
+        Logger.recordOutput(
+                "Turret/Follow/UsingOdometryAim",
+                followSolution.aimMode() == TurretTargetingUtil.AimMode.TAG_ODOMETRY_FALLBACK);
+        Logger.recordOutput("Turret/Follow/CameraLockActive", cameraLockActive);
+        Logger.recordOutput("Turret/Follow/UsingSpecificTag", gridTarget != null);
+        Logger.recordOutput("Turret/Follow/TxDeg", Units.radiansToDegrees(cameraYawRad));
+        Logger.recordOutput("Turret/Follow/CameraYawDeg", Units.radiansToDegrees(cameraYawRad));
         Logger.recordOutput("Turret/Follow/RequestedTargetDeg", Units.radiansToDegrees(requestedTargetAngleRad));
         Logger.recordOutput("Turret/Follow/PreClampCommandedAngleDeg", Units.radiansToDegrees(preClampCommandAngleRad));
         Logger.recordOutput("Turret/Follow/CommandedAngleDeg", Units.radiansToDegrees(commandedAngleRad));
@@ -98,14 +145,25 @@ public class TestTurretFollowCommand extends Command {
         Logger.recordOutput("Turret/Follow/AtLimit", turret.isAtLimit());
 
         SmartDashboard.putString("Turret/Follow/Alliance", alliance.toString());
-        SmartDashboard.putString("Turret/Follow/Zone", gridTarget.zone().toString());
-        SmartDashboard.putString("Turret/Follow/TargetType", "TAG");
-        SmartDashboard.putNumber("Turret/Follow/PrimaryTagId", gridTarget.primaryTagId());
-        SmartDashboard.putNumber("Turret/Follow/TargetPointX", targetPose2d.getX());
-        SmartDashboard.putNumber("Turret/Follow/TargetPointY", targetPose2d.getY());
-        SmartDashboard.putNumber("Turret/Follow/TxDeg", Units.radiansToDegrees(txTrimRad));
+        SmartDashboard.putString(
+                "Turret/Follow/Zone", gridTarget != null ? gridTarget.zone().toString() : "N/A");
+        SmartDashboard.putString(
+                "Turret/Follow/TargetType", followSolution.targetType().toString());
+        SmartDashboard.putNumber("Turret/Follow/PrimaryTagId", gridTarget != null ? gridTarget.primaryTagId() : -1);
+        SmartDashboard.putNumber(
+                "Turret/Follow/TargetPointX", followSolution.targetPoint().getX());
+        SmartDashboard.putNumber(
+                "Turret/Follow/TargetPointY", followSolution.targetPoint().getY());
+        SmartDashboard.putNumber("Turret/Follow/TxDeg", Units.radiansToDegrees(cameraYawRad));
         SmartDashboard.putBoolean(
-                "Turret/Follow/TrimTagSeen", followSolution.txForTarget().isPresent());
+                "Turret/Follow/TargetYawSeen", followSolution.yawForTarget().isPresent());
+        SmartDashboard.putBoolean(
+                "Turret/Follow/UsingCameraAim",
+                followSolution.aimMode() == TurretTargetingUtil.AimMode.TAG_CAMERA_LOCK);
+        SmartDashboard.putBoolean(
+                "Turret/Follow/UsingOdometryAim",
+                followSolution.aimMode() == TurretTargetingUtil.AimMode.TAG_ODOMETRY_FALLBACK);
+        SmartDashboard.putBoolean("Turret/Follow/CameraLockActive", cameraLockActive);
         SmartDashboard.putBoolean("Turret/Follow/UnwindActive", unwindActive);
         SmartDashboard.putBoolean("Turret/Follow/Saturated", saturated);
         SmartDashboard.putBoolean("Turret/Follow/AtLimit", turret.isAtLimit());

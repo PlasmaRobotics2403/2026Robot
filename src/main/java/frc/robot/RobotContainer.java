@@ -9,7 +9,9 @@ import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 import com.pathplanner.lib.commands.PathPlannerAuto;
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
@@ -46,6 +48,8 @@ import frc.robot.subsystems.vision.VisionIO;
 import frc.robot.subsystems.vision.VisionIOPhotonVision;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
 import frc.robot.util.TurretGridSelector;
+import frc.robot.util.TurretGridSelector.GridTarget;
+import frc.robot.util.TurretTargetingUtil;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 import org.ironmaple.simulation.seasonspecific.rebuilt2026.Arena2026Rebuilt;
@@ -84,7 +88,7 @@ public class RobotContainer {
                         drive,
                         new VisionIOPhotonVision(camera0Name, robotToCamera0),
                         new VisionIOPhotonVision(camera1Name, robotToCamera1));
-                shooter = new Shooter(new ShooterIOTalonFX());
+                shooter = new Shooter(new ShooterIOTalonFX(), this::calculateDistanceToTargetMeters);
                 break;
 
             case SIM:
@@ -106,7 +110,7 @@ public class RobotContainer {
                                 camera0Name, robotToCamera0, driveSimulation::getSimulatedDriveTrainPose),
                         new VisionIOPhotonVisionSim(
                                 camera1Name, robotToCamera1, driveSimulation::getSimulatedDriveTrainPose));
-                shooter = new Shooter(new ShooterIOSim());
+                shooter = new Shooter(new ShooterIOSim(), this::calculateDistanceToTargetMeters);
                 break;
 
             default:
@@ -118,7 +122,7 @@ public class RobotContainer {
                         new ModuleIO() {},
                         (robotPose) -> {});
                 vision = new Vision(drive, new VisionIO() {}, new VisionIO() {});
-                shooter = new Shooter(new ShooterIO() {});
+                shooter = new Shooter(new ShooterIO() {}, this::calculateDistanceToTargetMeters);
                 break;
         }
 
@@ -310,5 +314,16 @@ public class RobotContainer {
                 .targetPose()
                 .toPose2d();
         field.getObject("TurretTarget").setPose(targetPose);
+    }
+
+    private double calculateDistanceToTargetMeters() {
+
+        Pose2d robotPose = drive.getPose();
+        Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+        GridTarget target = TurretGridSelector.select(robotPose, alliance, java.util.Optional.empty());
+        Pose3d cameraPose = TurretTargetingUtil.getTurretCameraPose(robotPose, testTurret.getPositionRadians());
+        Translation3d cameraTranslation = cameraPose.getTranslation();
+        Translation3d tagTranslation = target.targetPose().getTranslation();
+        return cameraTranslation.getDistance(tagTranslation);
     }
 }

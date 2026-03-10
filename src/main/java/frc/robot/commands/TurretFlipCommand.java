@@ -59,12 +59,18 @@ public class TurretFlipCommand extends Command {
         double followOffsetRad = Units.degreesToRadians(followOffsetDeg);
         Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
         TurretTargetingUtil.FollowSolution followSolution = TurretTargetingUtil.calculateFollowSolution(
-                robotPoseSupplier.get(), alliance, previousZone, vision, cameraIndex, followOffsetRad);
+                robotPoseSupplier.get(),
+                alliance,
+                previousZone,
+                vision,
+                cameraIndex,
+                turret.getPositionRadians(),
+                followOffsetRad);
         previousZone = Optional.of(followSolution.gridTarget().zone());
 
         TurretTargetingUtil.FlipPlan flipPlan = TurretTargetingUtil.planFlip(
                 turret.getPositionRadians(),
-                followSolution.targetAngleRad(),
+                followSolution.finalTargetAngleRad(),
                 turret.MIN_ANGLE_RAD,
                 turret.MAX_ANGLE_RAD);
 
@@ -82,7 +88,10 @@ public class TurretFlipCommand extends Command {
             turret.setTargetAngleRadians(finalTargetRad);
         }
 
-        Logger.recordOutput("Turret/Flip/GridFollowTargetDeg", Units.radiansToDegrees(followSolution.targetAngleRad()));
+        Logger.recordOutput(
+                "Turret/Flip/GridFollowTargetDeg", Units.radiansToDegrees(followSolution.finalTargetAngleRad()));
+        Logger.recordOutput(
+                "Turret/Flip/GridFollowAimMode", followSolution.aimMode().toString());
         Logger.recordOutput("Turret/Flip/RequestedTargetDeg", Units.radiansToDegrees(requestedFlipTargetRad));
         Logger.recordOutput("Turret/Flip/ChosenBranch", flipPlan.chosenBranch().toString());
         Logger.recordOutput("Turret/Flip/UseUnwind", flipPlan.shouldUnwind());
