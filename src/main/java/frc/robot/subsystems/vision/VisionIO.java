@@ -13,7 +13,10 @@ public interface VisionIO {
         public TaggedTargetObservation[] taggedTargetObservations = new TaggedTargetObservation[0];
         public PoseObservation[] poseObservations = new PoseObservation[0];
         public int[] tagIds = new int[0];
+        public double tagDistance = 0.0;
     }
+
+    double tagDistance = 0;
 
     record TargetObservation(Rotation2d tx, Rotation2d ty, Rotation2d yaw) {}
 

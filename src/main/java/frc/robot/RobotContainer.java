@@ -9,9 +9,7 @@ import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 import com.pathplanner.lib.commands.PathPlannerAuto;
 import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
@@ -26,8 +24,7 @@ import frc.robot.commands.IntakeStowCommand;
 import frc.robot.commands.RunIndexterDutyCycle;
 import frc.robot.commands.ShootCommand;
 import frc.robot.commands.ShootFromDistanceCommand;
-import frc.robot.commands.ShootTuningCommand;
-import frc.robot.commands.TestTurretFollowCommand;
+import frc.robot.commands.TurretFollowCommand;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.IndexerSubsystem;
 import frc.robot.subsystems.IntakeSubsystem;
@@ -35,24 +32,17 @@ import frc.robot.subsystems.TestTurretSubsystem;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.GyroIO;
 import frc.robot.subsystems.drive.GyroIOPigeon2;
-import frc.robot.subsystems.drive.GyroIOSim;
 import frc.robot.subsystems.drive.ModuleIO;
-import frc.robot.subsystems.drive.ModuleIOSim;
 import frc.robot.subsystems.drive.ModuleIOTalonFX;
 import frc.robot.subsystems.shooter.Shooter;
 import frc.robot.subsystems.shooter.ShooterIO;
-import frc.robot.subsystems.shooter.ShooterIOSim;
 import frc.robot.subsystems.shooter.ShooterIOTalonFX;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionIO;
 import frc.robot.subsystems.vision.VisionIOPhotonVision;
-import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
 import frc.robot.util.TurretGridSelector;
-import frc.robot.util.TurretGridSelector.GridTarget;
-import frc.robot.util.TurretTargetingUtil;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
-import org.ironmaple.simulation.seasonspecific.rebuilt2026.Arena2026Rebuilt;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
@@ -74,6 +64,8 @@ public class RobotContainer {
 
     private final LoggedDashboardChooser<Command> autoChooser;
 
+    private final VisionIOPhotonVision cam0VisionIO;
+
     public RobotContainer() {
         switch (Constants.currentMode) {
             case REAL:
@@ -84,34 +76,35 @@ public class RobotContainer {
                         new ModuleIOTalonFX(TunerConstants.BackLeft),
                         new ModuleIOTalonFX(TunerConstants.BackRight),
                         (robotPose) -> {});
-                vision = new Vision(
-                        drive,
-                        new VisionIOPhotonVision(camera0Name, robotToCamera0),
-                        new VisionIOPhotonVision(camera1Name, robotToCamera1));
-                shooter = new Shooter(new ShooterIOTalonFX(), this::calculateDistanceToTargetMeters);
+                cam0VisionIO = new VisionIOPhotonVision(camera0Name, robotToCamera0, drive);
+                vision = new Vision(drive, cam0VisionIO, new VisionIOPhotonVision(camera1Name, robotToCamera1, drive));
+                shooter = new Shooter(new ShooterIOTalonFX(), this::calculateDistanceToTargetMeters, drive);
                 break;
 
-            case SIM:
-                SimulatedArena.overrideInstance(new Arena2026Rebuilt(true));
-                driveSimulation =
-                        new SwerveDriveSimulation(Drive.getMapleSimConfig(), new Pose2d(3, 3, new Rotation2d()));
-                SimulatedArena.getInstance().addDriveTrainSimulation(driveSimulation);
-                drive = new Drive(
-                        new GyroIOSim(driveSimulation.getGyroSimulation()),
-                        new ModuleIOSim(driveSimulation.getModules()[0]),
-                        new ModuleIOSim(driveSimulation.getModules()[1]),
-                        new ModuleIOSim(driveSimulation.getModules()[2]),
-                        new ModuleIOSim(driveSimulation.getModules()[3]),
-                        driveSimulation::setSimulationWorldPose);
+                // case SIM:
+                //         SimulatedArena.overrideInstance(new Arena2026Rebuilt(true));
+                //         driveSimulation =
+                //                 new SwerveDriveSimulation(Drive.getMapleSimConfig(), new Pose2d(3, 3, new
+                // Rotation2d()));
+                //         SimulatedArena.getInstance().addDriveTrainSimulation(driveSimulation);
+                //         drive = new Drive(
+                //                 new GyroIOSim(driveSimulation.getGyroSimulation()),
+                //                 new ModuleIOSim(driveSimulation.getModules()[0]),
+                //                 new ModuleIOSim(driveSimulation.getModules()[1]),
+                //                 new ModuleIOSim(driveSimulation.getModules()[2]),
+                //                 new ModuleIOSim(driveSimulation.getModules()[3]),
+                //                 driveSimulation::setSimulationWorldPose);
 
-                vision = new Vision(
-                        drive,
-                        new VisionIOPhotonVisionSim(
-                                camera0Name, robotToCamera0, driveSimulation::getSimulatedDriveTrainPose),
-                        new VisionIOPhotonVisionSim(
-                                camera1Name, robotToCamera1, driveSimulation::getSimulatedDriveTrainPose));
-                shooter = new Shooter(new ShooterIOSim(), this::calculateDistanceToTargetMeters);
-                break;
+                //         vision = new Vision(
+                //                 drive,
+                //                 // new VisionIOPhotonVisionSim(
+                //                 //         camera0Name, robotToCamera0, driveSimulation::getSimulatedDriveTrainPose),
+                //                 // new VisionIOPhotonVisionSim(
+                //                 //         camera1Name, robotToCamera1,
+                // driveSimulation::getSimulatedDriveTrainPose));
+                //         shooter = new Shooter(new ShooterIOSim(), this::calculateDistanceToTargetMeters, drive);
+                //         cam0VisionIO = new VisionIOPhotonVision(camera0Name, robotToCamera0, drive);
+                // break;
 
             default:
                 drive = new Drive(
@@ -122,7 +115,8 @@ public class RobotContainer {
                         new ModuleIO() {},
                         (robotPose) -> {});
                 vision = new Vision(drive, new VisionIO() {}, new VisionIO() {});
-                shooter = new Shooter(new ShooterIO() {}, this::calculateDistanceToTargetMeters);
+                shooter = new Shooter(new ShooterIO() {}, this::calculateDistanceToTargetMeters, drive);
+                cam0VisionIO = new VisionIOPhotonVision(camera0Name, robotToCamera0, drive);
                 break;
         }
 
@@ -236,7 +230,7 @@ public class RobotContainer {
     private void configureButtonBindings() {
         drive.setDefaultCommand(DriveCommands.joystickDrive(
                 drive, () -> -controller.getLeftY(), () -> -controller.getLeftX(), () -> -controller.getRightX()));
-        testTurret.setDefaultCommand(new TestTurretFollowCommand(testTurret, vision, drive::getPose));
+        testTurret.setDefaultCommand(new TurretFollowCommand(vision, testTurret, drive, 0));
 
         controller
                 .start()
@@ -253,16 +247,16 @@ public class RobotContainer {
         controller.rightTrigger().whileTrue(new IntakeOutCommand(intake));
 
         controller.a().onTrue(new IntakeStowCommand(intake));
-        controller
-                .b()
-                .whileTrue(new ShootFromDistanceCommand(
-                        shooter,
-                        () -> edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.getNumber(
-                                Constants.ShooterConstants.TUNING_DISTANCE_METERS_DASHBOARD_KEY,
-                                Constants.ShooterConstants.TUNING_DISTANCE_METERS_DASHBOARD_DEFAULT)));
+        // controller
+        //         .b()
+        //         .whileTrue(new ShootFromDistanceCommand(
+        //                 shooter,
+        //                 () -> edu.wpi.first.wpilibj.smartdashboard.SmartDashboard.getNumber(
+        //                         Constants.ShooterConstants.TUNING_DISTANCE_METERS_DASHBOARD_KEY,
+        //                         Constants.ShooterConstants.TUNING_DISTANCE_METERS_DASHBOARD_DEFAULT)));
         controller.x().whileTrue(new ShootCommand(shooter));
 
-        controller.leftBumper().whileTrue(new ShootTuningCommand(shooter));
+        controller.leftBumper().whileTrue(new ShootFromDistanceCommand(shooter));
 
         controller
                 .rightBumper()
@@ -318,12 +312,6 @@ public class RobotContainer {
 
     private double calculateDistanceToTargetMeters() {
 
-        Pose2d robotPose = drive.getPose();
-        Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
-        GridTarget target = TurretGridSelector.select(robotPose, alliance, java.util.Optional.empty());
-        Pose3d cameraPose = TurretTargetingUtil.getTurretCameraPose(robotPose, testTurret.getPositionRadians());
-        Translation3d cameraTranslation = cameraPose.getTranslation();
-        Translation3d tagTranslation = target.targetPose().getTranslation();
-        return cameraTranslation.getDistance(tagTranslation);
+        return cam0VisionIO.calcTagDistance();
     }
 }

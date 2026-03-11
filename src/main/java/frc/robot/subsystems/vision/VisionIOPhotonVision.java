@@ -2,22 +2,36 @@ package frc.robot.subsystems.vision;
 
 import static frc.robot.subsystems.vision.VisionConstants.aprilTagLayout;
 
+import edu.wpi.first.apriltag.AprilTagFieldLayout;
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Transform3d;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.DriverStation.Alliance;
+import frc.robot.subsystems.drive.Drive;
+import frc.robot.util.TurretGridSelector;
+import frc.robot.util.TurretGridSelector.GridTarget;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import org.photonvision.PhotonCamera;
+import org.photonvision.PhotonUtils;
 
 public class VisionIOPhotonVision implements VisionIO {
     protected final PhotonCamera camera;
     protected final Transform3d robotToCamera;
 
-    public VisionIOPhotonVision(String name, Transform3d robotToCamera) {
+    private Drive drive;
+
+    private double resultPitch = 0;
+
+    public VisionIOPhotonVision(String name, Transform3d robotToCamera, Drive drive) {
         camera = new PhotonCamera(name);
         this.robotToCamera = robotToCamera;
+        this.drive = drive;
     }
 
     @Override
@@ -29,6 +43,7 @@ public class VisionIOPhotonVision implements VisionIO {
         List<TaggedTargetObservation> taggedTargetObservations = new LinkedList<>();
         for (var result : camera.getAllUnreadResults()) {
             if (result.hasTargets()) {
+                inputs.tagDistance = calcTagDistance();
                 inputs.latestTargetObservation = new TargetObservation(
                         Rotation2d.fromDegrees(result.getBestTarget().getYaw()),
                         Rotation2d.fromDegrees(result.getBestTarget().getPitch()),
@@ -48,6 +63,7 @@ public class VisionIOPhotonVision implements VisionIO {
             }
 
             if (result.multitagResult.isPresent()) {
+                inputs.tagDistance = calcTagDistance();
                 var multitagResult = result.multitagResult.get();
 
                 Transform3d fieldToCamera = multitagResult.estimatedPose.best;
@@ -92,6 +108,17 @@ public class VisionIOPhotonVision implements VisionIO {
                             PoseObservationType.PHOTONVISION));
                 }
             }
+            Pose2d robotPose = drive.getPose();
+            Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+
+            GridTarget target = TurretGridSelector.select(robotPose, alliance, Optional.empty());
+
+            int tagID = target.primaryTagId();
+            if (result.getBestTarget() != null) {
+                if (result.getBestTarget().fiducialId == tagID) {
+                    resultPitch = result.getBestTarget().getPitch();
+                }
+            }
         }
 
         inputs.poseObservations = new PoseObservation[poseObservations.size()];
@@ -109,5 +136,18 @@ public class VisionIOPhotonVision implements VisionIO {
         for (int id : tagIds) {
             inputs.tagIds[i++] = id;
         }
+    }
+
+    public double calcTagDistance() {
+        Pose2d robotPose = drive.getPose();
+        Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+        GridTarget target = TurretGridSelector.select(robotPose, alliance, Optional.empty());
+        int tagID = target.primaryTagId();
+        AprilTagFieldLayout layout = VisionConstants.aprilTagLayout;
+
+        Optional<Pose3d> tagPoseOptional = layout.getTagPose(tagID);
+        Pose2d tagPose = tagPoseOptional.get().toPose2d();
+        return PhotonUtils.calculateDistanceToTargetMeters(
+                0.49809146, tagPose.getY(), Math.toRadians(70), Math.toRadians(resultPitch));
     }
 }

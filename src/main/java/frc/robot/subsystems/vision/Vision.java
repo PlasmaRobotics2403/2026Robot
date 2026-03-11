@@ -19,6 +19,7 @@ import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.subsystems.vision.VisionIO.PoseObservationType;
@@ -109,6 +110,24 @@ public class Vision extends SubsystemBase {
         return Optional.ofNullable(bestYaw);
     }
 
+    public Rotation2d getTargetXForTag(int cameraIndex, int tagId) {
+        for (var targetObservation : inputs[cameraIndex].taggedTargetObservations) {
+            if (targetObservation.tagId() == tagId) {
+                return targetObservation.tx();
+            }
+        }
+        return Rotation2d.kZero;
+    }
+
+    public boolean seesTag(int cameraIndex, int tagId) {
+        for (int id : inputs[cameraIndex].tagIds) {
+            if (id == tagId) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public void periodic() {
         for (int i = 0; i < io.length; i++) {
@@ -193,11 +212,14 @@ public class Vision extends SubsystemBase {
             Logger.recordOutput(
                     "Vision/Camera" + Integer.toString(cameraIndex) + "/RobotPosesRejected",
                     robotPosesRejected.toArray(Pose3d[]::new));
+            SmartDashboard.putBoolean("Turret/VisionHasTarget", hasAnyTarget(0));
+
             allTagPoses.addAll(tagPoses);
             allRobotPoses.addAll(robotPoses);
             allRobotPosesAccepted.addAll(robotPosesAccepted);
             allRobotPosesRejected.addAll(robotPosesRejected);
         }
+        SmartDashboard.putNumber("Turret/TagDistance", io[0].tagDistance);
 
         Logger.recordOutput("Vision/Summary/TagPoses", allTagPoses.toArray(Pose3d[]::new));
         Logger.recordOutput("Vision/Summary/RobotPoses", allRobotPoses.toArray(Pose3d[]::new));

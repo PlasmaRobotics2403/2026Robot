@@ -5,6 +5,7 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants.ShooterConstants;
+import frc.robot.subsystems.drive.Drive;
 import java.util.Locale;
 import java.util.function.DoubleSupplier;
 import org.littletonrobotics.junction.Logger;
@@ -35,17 +36,21 @@ public class Shooter extends SubsystemBase {
     private boolean dashboardTargetsResetAfterBoot = false;
     private final DoubleSupplier tuningDistanceSupplier;
 
-    public Shooter(ShooterIO io) {
+    private Drive drive;
+
+    public Shooter(ShooterIO io, Drive drive) {
         this(
                 io,
                 () -> SmartDashboard.getNumber(
                         ShooterConstants.TUNING_DISTANCE_METERS_DASHBOARD_KEY,
                         ShooterConstants.TUNING_DISTANCE_METERS_DASHBOARD_DEFAULT),
                 true);
+        this.drive = drive;
     }
 
-    public Shooter(ShooterIO io, DoubleSupplier tuningDistanceSupplier) {
+    public Shooter(ShooterIO io, DoubleSupplier tuningDistanceSupplier, Drive drive) {
         this(io, tuningDistanceSupplier, true);
+        this.drive = drive;
     }
 
     Shooter(ShooterIO io, boolean initializeDashboard) {
@@ -188,7 +193,7 @@ public class Shooter extends SubsystemBase {
         double tuningFlywheelTargetRps = SmartDashboard.getNumber(
                 ShooterConstants.TUNING_FLYWHEEL_TARGET_RPS_DASHBOARD_KEY,
                 ShooterConstants.TUNING_FLYWHEEL_TARGET_RPS_DASHBOARD_DEFAULT);
-        double predictedHoodDeg = evaluateHoodDegrees(tuningDistanceMeters);
+        double predictedHoodDeg = evaluateHoodDegrees();
         double predictedFlywheelRps = evaluateFlywheelRps(tuningDistanceMeters);
 
         SmartDashboard.putNumber(ShooterConstants.TUNING_CURRENT_HOOD_DEG_DASHBOARD_KEY, getHoodAngleDegrees());
@@ -277,8 +282,8 @@ public class Shooter extends SubsystemBase {
         setHoodAngleDegrees(hoodAngleDeg);
     }
 
-    public void runShotFromDistance(double distanceMeters) {
-        runShot(evaluateHoodDegrees(distanceMeters), evaluateFlywheelRps(distanceMeters));
+    public void runShotFromDistance() {
+        runShot(evaluateHoodDegrees(), evaluateFlywheelRps(tuningDistanceSupplier.getAsDouble()));
     }
 
     public void stopFlywheel() {
@@ -332,14 +337,17 @@ public class Shooter extends SubsystemBase {
         return hoodRotations * 360.0 + ShooterConstants.HOOD_ZERO_ANGLE_DEGREES;
     }
 
-    public static double evaluateHoodDegrees(double distanceMeters) {
-        return ShooterConstants.HOOD_DISTANCE_SLOPE_DEG_PER_METER * distanceMeters
-                + ShooterConstants.HOOD_DISTANCE_INTERCEPT_DEG;
+    public double evaluateHoodDegrees() {
+        double distance = tuningDistanceSupplier.getAsDouble();
+        return 3.931 * Math.pow(10, -15) * Math.pow(distance, 49.95);
+        // return ShooterConstants.HOOD_DISTANCE_SLOPE_DEG_PER_METER * distance
+        //         + ShooterConstants.HOOD_DISTANCE_INTERCEPT_DEG;
     }
 
     public static double evaluateFlywheelRps(double distanceMeters) {
-        return ShooterConstants.FLYWHEEL_DISTANCE_SLOPE_RPS_PER_METER * distanceMeters
-                + ShooterConstants.FLYWHEEL_DISTANCE_INTERCEPT_RPS;
+        return 12.81 * Math.pow(distanceMeters, 2) - 25.68 * distanceMeters + 62.5;
+        // return ShooterConstants.FLYWHEEL_DISTANCE_SLOPE_RPS_PER_METER * distanceMeters
+        //         + ShooterConstants.FLYWHEEL_DISTANCE_INTERCEPT_RPS;
     }
 
     private static String formatSampleRow(double distanceMeters, double hoodTargetDeg, double flywheelTargetRps) {

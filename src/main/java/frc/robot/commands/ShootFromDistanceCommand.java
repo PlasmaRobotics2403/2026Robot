@@ -3,21 +3,18 @@ package frc.robot.commands;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.Constants.ShooterConstants;
 import frc.robot.subsystems.shooter.Shooter;
-import java.util.function.DoubleSupplier;
 
 public class ShootFromDistanceCommand extends Command {
     private final Shooter shooter;
-    private final DoubleSupplier distanceMetersSupplier;
 
-    public ShootFromDistanceCommand(Shooter shooter, DoubleSupplier distanceMetersSupplier) {
+    public ShootFromDistanceCommand(Shooter shooter) {
         this.shooter = shooter;
-        this.distanceMetersSupplier = distanceMetersSupplier;
         addRequirements(shooter);
     }
 
     @Override
     public void execute() {
-        shooter.runShotFromDistance(distanceMetersSupplier.getAsDouble());
+        shooter.runShotFromDistance();
     }
 
     @Override
