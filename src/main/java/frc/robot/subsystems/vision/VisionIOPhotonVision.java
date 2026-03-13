@@ -87,36 +87,39 @@ public class VisionIOPhotonVision implements VisionIO {
                         PoseObservationType.PHOTONVISION));
 
             } else if (!result.targets.isEmpty()) {
-                var target = result.targets.get(0);
-                var tagPose = aprilTagLayout.getTagPose(target.fiducialId);
-                if (tagPose.isPresent()) {
-                    Transform3d fieldToTarget = new Transform3d(
-                            tagPose.get().getTranslation(), tagPose.get().getRotation());
-                    Transform3d cameraToTarget = target.bestCameraToTarget;
-                    Transform3d fieldToCamera = fieldToTarget.plus(cameraToTarget.inverse());
-                    Transform3d fieldToRobot = fieldToCamera.plus(robotToCamera.inverse());
-                    Pose3d robotPose = new Pose3d(fieldToRobot.getTranslation(), fieldToRobot.getRotation());
+                // var target = result.targets.get(0);
+                for (var target : result.targets) {
+                    var tagPose = aprilTagLayout.getTagPose(target.fiducialId);
+                    if (tagPose.isPresent()) {
+                        Transform3d fieldToTarget = new Transform3d(
+                                tagPose.get().getTranslation(), tagPose.get().getRotation());
+                        Transform3d cameraToTarget = target.bestCameraToTarget;
+                        Transform3d fieldToCamera = fieldToTarget.plus(cameraToTarget.inverse());
+                        Transform3d fieldToRobot = fieldToCamera.plus(robotToCamera.inverse());
+                        Pose3d robotPose = new Pose3d(fieldToRobot.getTranslation(), fieldToRobot.getRotation());
 
-                    tagIds.add((short) target.fiducialId);
+                        tagIds.add((short) target.fiducialId);
 
-                    poseObservations.add(new PoseObservation(
-                            result.getTimestampSeconds(),
-                            robotPose,
-                            target.poseAmbiguity,
-                            1,
-                            cameraToTarget.getTranslation().getNorm(),
-                            PoseObservationType.PHOTONVISION));
+                        poseObservations.add(new PoseObservation(
+                                result.getTimestampSeconds(),
+                                robotPose,
+                                target.poseAmbiguity,
+                                1,
+                                cameraToTarget.getTranslation().getNorm(),
+                                PoseObservationType.PHOTONVISION));
+                    }
                 }
-            }
-            Pose2d robotPose = drive.getPose();
-            Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+                Pose2d robotPose = drive.getPose();
+                Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
 
-            GridTarget target = TurretGridSelector.select(robotPose, alliance, Optional.empty());
+                GridTarget gridTarget = TurretGridSelector.select(robotPose, alliance, Optional.empty());
+                // result.targets.contains(tagId)
 
-            int tagID = target.primaryTagId();
-            if (result.getBestTarget() != null) {
-                if (result.getBestTarget().fiducialId == tagID) {
-                    resultPitch = result.getBestTarget().getPitch();
+                int tagID = gridTarget.primaryTagId();
+                for (var tag : result.targets) {
+                    if (tag.fiducialId == tagID) {
+                        resultPitch = tag.getPitch();
+                    }
                 }
             }
         }
@@ -147,7 +150,11 @@ public class VisionIOPhotonVision implements VisionIO {
 
         Optional<Pose3d> tagPoseOptional = layout.getTagPose(tagID);
         Pose2d tagPose = tagPoseOptional.get().toPose2d();
+        // return target.
         return PhotonUtils.calculateDistanceToTargetMeters(
-                0.49809146, tagPose.getY(), Math.toRadians(70), Math.toRadians(resultPitch));
+                0.49809146,
+                tagPoseOptional.get().getTranslation().getY(),
+                Math.toRadians(70),
+                Math.toRadians(resultPitch));
     }
 }

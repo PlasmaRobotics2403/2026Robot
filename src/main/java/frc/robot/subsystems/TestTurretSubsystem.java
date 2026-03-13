@@ -27,7 +27,7 @@ public class TestTurretSubsystem extends SubsystemBase {
     public static final int TALON_ID = 20;
 
     public static final String CAN_BUS = "rio";
-    public static final double GEAR_RATIO = 25.714;
+    public static final double GEAR_RATIO = 26;
 
     private static final String DASHBOARD_PID_PREFIX = "Turret PID/";
     private static final String FOLLOW_OFFSET_DASHBOARD_KEY = "Turret/Follow/OffsetDeg";

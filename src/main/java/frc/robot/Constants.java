@@ -11,6 +11,10 @@ public final class Constants {
     public static final Mode simMode = Mode.SIM;
     public static final Mode currentMode = RobotBase.isReal() ? Mode.REAL : simMode;
     public static final boolean tuningMode = false;
+    public static final double blueHubX = 4.621; // meters
+    public static final double blueHubY = 4; // meters
+    public static final double redHubX = 11.893; // meters
+    public static final double redHubY = 4; // meters
 
     public static class RobotDevices {
         public static final class IntakeConstants {
@@ -40,8 +44,8 @@ public final class Constants {
         public static final double kAccelerationRpsPerSec = 400.0;
         public static final double kJerkRpsPerSec2 = 4000.0;
 
-        public static final double MIN_ANGLE_DEG = -130.0;
-        public static final double MAX_ANGLE_DEG = 145.0;
+        public static final double MIN_ANGLE_DEG = -183.0;
+        public static final double MAX_ANGLE_DEG = 183.0;
         public static final Translation2d TURRET_PIVOT_FROM_ROBOT_CENTER =
                 new Translation2d(Units.inchesToMeters(-6.25), Units.inchesToMeters(-6.25));
 
@@ -132,6 +136,31 @@ public final class Constants {
 
         public static final double FLYWHEEL_TEST_MAX_DUTY = 0.50;
         public static final double HOOD_TEST_MAX_DUTY = 0.25;
+    }
+
+    public static final class ClimbConstants {
+        private ClimbConstants() {}
+
+        public static final int MOTOR_CAN_ID = 35;
+        public static final String CANBUS_NAME = "rio";
+
+        public static final boolean MOTOR_INVERTED = false;
+        public static final double SUPPLY_CURRENT_LIMIT_AMPS = 40.0;
+        public static final boolean SUPPLY_CURRENT_LIMIT_ENABLED = true;
+        public static final double STATOR_CURRENT_LIMIT_AMPS = 80.0;
+        public static final boolean STATOR_CURRENT_LIMIT_ENABLED = false;
+
+        public static final double POSITION_KP = 8.0;
+        public static final double POSITION_KI = 0.0;
+        public static final double POSITION_KD = 0.0;
+        public static final double POSITION_KS = 0.0;
+        public static final double POSITION_KV = 0.2;
+        public static final double POSITION_KA = 0.0;
+
+        public static final double POSITION_TOLERANCE_ROTATIONS = 0.05;
+        public static final double TARGET_POSITION_ROTATIONS = 50.0;
+        public static final double HOME_POSITION_ROTATIONS = 0.0;
+        public static final double MAX_DUTY_CYCLE = 1.0;
     }
 
     public static enum Mode {

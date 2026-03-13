@@ -4,13 +4,12 @@ import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
-import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.Timer;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
+import frc.robot.Constants;
 import frc.robot.Constants.TurretConstants;
 import frc.robot.subsystems.TestTurretSubsystem;
 import frc.robot.subsystems.drive.Drive;
@@ -20,7 +19,7 @@ import frc.robot.util.TurretGridSelector;
 import frc.robot.util.TurretGridSelector.GridTarget;
 import java.util.Optional;
 
-public class TurretFollowCommand extends Command {
+public class TurretFollowOdometryCommand extends Command {
 
     private Vision vision;
     private TestTurretSubsystem turret;
@@ -29,7 +28,9 @@ public class TurretFollowCommand extends Command {
     private int cameraIndex;
     private Timer timer = new Timer();
 
-    public TurretFollowCommand(Vision vision, TestTurretSubsystem turret, Drive drive, int cameraIndex) {
+    private AprilTagFieldLayout layout;
+
+    public TurretFollowOdometryCommand(Vision vision, TestTurretSubsystem turret, Drive drive, int cameraIndex) {
         this.vision = vision;
         this.turret = turret;
         this.drive = drive;
@@ -39,7 +40,9 @@ public class TurretFollowCommand extends Command {
     }
 
     @Override
-    public void initialize() {}
+    public void initialize() {
+        layout = VisionConstants.aprilTagLayout;
+    }
 
     @Override
     public void execute() {
@@ -49,19 +52,8 @@ public class TurretFollowCommand extends Command {
         GridTarget target = TurretGridSelector.select(robotPose, alliance, Optional.empty());
 
         int tagID = target.primaryTagId();
-        Rotation2d tx = vision.getTargetXForTag(cameraIndex, tagID);
-        double angle = applyUnwind(turret.getPositionRadians() + tx.getRadians());
-        angle = applyUnwind(angle);
 
-        boolean seesTag = vision.seesTag(cameraIndex, tagID);
-        SmartDashboard.putNumber("Turret PID/ObometryPose", aimUsingOdometry(robotPose, tagID));
-        SmartDashboard.putNumber("Turret PID/ObometryPose", angle);
-        if (seesTag) {
-            turret.setTargetAngleRadians(angle);
-        } else {
-            // turret.setTargetAngleRadians(aimUsingOdometry(robotPose, tagID));
-        }
-        SmartDashboard.putNumber("Turret/Follow/TxDeg", tx.getDegrees());
+        turret.setTargetAngleRadians(aimUsingOdometryCenterHub(robotPose, alliance));
     }
 
     @Override
@@ -69,11 +61,10 @@ public class TurretFollowCommand extends Command {
 
     @Override
     public boolean isFinished() {
-        return false;
+        return true;
     }
 
     private double aimUsingOdometry(Pose2d robotPose, int tagID) {
-        AprilTagFieldLayout layout = VisionConstants.aprilTagLayout;
         Optional<Pose3d> tagPoseOptional = layout.getTagPose(tagID);
 
         if (tagPoseOptional.isEmpty()) {
@@ -84,25 +75,49 @@ public class TurretFollowCommand extends Command {
         Translation2d robot = robotPose.getTranslation();
         Translation2d tag = tagPose.getTranslation();
 
-        double fieldAngle = Math.atan2(tag.getY() - robot.getY(), tag.getX() - robot.getX());
+        double fieldAngle = calcAngle(tagID, tagID, robotPose);
 
         double turretAngle =
-                fieldAngle - robotPose.getRotation().getRadians() - Math.toRadians(90); // turret faces left
+                fieldAngle - (robotPose.getRotation().getRadians() - Math.toRadians(180)) - Math.toRadians(90);
         turretAngle = MathUtil.angleModulus(turretAngle);
         turretAngle = applyUnwind(turretAngle);
 
         return turretAngle;
     }
 
-    private double applyUnwind(double targetAngle) {
-        double min = TurretConstants.MIN_ANGLE_DEG;
-        double max = TurretConstants.MAX_ANGLE_DEG;
+    private double aimUsingOdometryCenterHub(Pose2d robotPose, Alliance alliance) {
+        double hubX, hubY;
+        if (alliance == Alliance.Blue) {
+            hubX = Constants.blueHubX;
+            hubY = Constants.blueHubY;
+        } else {
+            hubX = Constants.redHubX;
+            hubY = Constants.redHubY;
+        }
+        double fieldAngle = calcAngle(hubX, hubY, robotPose);
 
-        while (targetAngle < min) {
+        double turretAngle =
+                fieldAngle - (robotPose.getRotation().getRadians() - Math.toRadians(180)) - Math.toRadians(90);
+        turretAngle = applyUnwind(turretAngle);
+        turretAngle = MathUtil.angleModulus(turretAngle);
+
+        return turretAngle;
+    }
+
+    private double calcAngle(double hubX, double hubY, Pose2d robotPose) {
+        double fieldAngle = Math.atan2(hubY - robotPose.getY(), hubX - robotPose.getX());
+        return fieldAngle;
+    }
+
+    private double applyUnwind(double targetAngle) {
+        double min = Math.toRadians(TurretConstants.MIN_ANGLE_DEG);
+        double max = Math.toRadians(TurretConstants.MAX_ANGLE_DEG);
+
+        while (targetAngle < min - Math.toRadians(3)) {
             targetAngle += 2 * Math.PI;
         }
 
-        while (targetAngle > max) {
+        while (targetAngle > max + Math.toRadians(3)) {
             targetAngle -= 2 * Math.PI;
         }
 

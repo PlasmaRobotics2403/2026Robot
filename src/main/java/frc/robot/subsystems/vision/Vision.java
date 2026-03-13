@@ -23,6 +23,8 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.subsystems.vision.VisionIO.PoseObservationType;
+import frc.robot.subsystems.vision.VisionIO.TaggedTargetObservation;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
@@ -65,12 +67,22 @@ public class Vision extends SubsystemBase {
     }
 
     public Optional<Rotation2d> getTargetX(int cameraIndex, int tagId) {
-        for (var targetObservation : inputs[cameraIndex].taggedTargetObservations) {
+        TaggedTargetObservation[] tagArray = inputs[cameraIndex].taggedTargetObservations;
+        for (var targetObservation : tagArray) {
             if (targetObservation.tagId() == tagId) {
                 return Optional.of(targetObservation.tx());
             }
         }
         return Optional.empty();
+    }
+
+    public ArrayList<Double> getAllObservedTags() {
+        ArrayList<Double> tags = new ArrayList<>();
+        TaggedTargetObservation[] tagArray = inputs[0].taggedTargetObservations;
+        for (var targetObservation : tagArray) {
+            tags.add((double) targetObservation.tagId());
+        }
+        return tags;
     }
 
     public Optional<Rotation2d> getTargetYaw(int cameraIndex, int tagId) {
@@ -111,17 +123,23 @@ public class Vision extends SubsystemBase {
     }
 
     public Rotation2d getTargetXForTag(int cameraIndex, int tagId) {
+        boolean foundTag = false;
+        TaggedTargetObservation tag = null;
         for (var targetObservation : inputs[cameraIndex].taggedTargetObservations) {
             if (targetObservation.tagId() == tagId) {
-                return targetObservation.tx();
+                foundTag = true;
+                tag = targetObservation;
             }
+        }
+        if (foundTag && tag != null) {
+            return tag.tx();
         }
         return Rotation2d.kZero;
     }
 
     public boolean seesTag(int cameraIndex, int tagId) {
-        for (int id : inputs[cameraIndex].tagIds) {
-            if (id == tagId) {
+        for (var targetObservation : inputs[cameraIndex].taggedTargetObservations) {
+            if (targetObservation.tagId() == tagId) {
                 return true;
             }
         }
@@ -130,6 +148,7 @@ public class Vision extends SubsystemBase {
 
     @Override
     public void periodic() {
+        SmartDashboard.putNumberArray("Vision/tags", getAllObservedTags().toArray(new Double[0]));
         for (int i = 0; i < io.length; i++) {
             io[i].updateInputs(inputs[i]);
             Logger.processInputs("Vision/Camera" + Integer.toString(i), inputs[i]);
@@ -219,12 +238,12 @@ public class Vision extends SubsystemBase {
             allRobotPosesAccepted.addAll(robotPosesAccepted);
             allRobotPosesRejected.addAll(robotPosesRejected);
         }
-        SmartDashboard.putNumber("Turret/TagDistance", io[0].tagDistance);
 
         Logger.recordOutput("Vision/Summary/TagPoses", allTagPoses.toArray(Pose3d[]::new));
         Logger.recordOutput("Vision/Summary/RobotPoses", allRobotPoses.toArray(Pose3d[]::new));
         Logger.recordOutput("Vision/Summary/RobotPosesAccepted", allRobotPosesAccepted.toArray(Pose3d[]::new));
         Logger.recordOutput("Vision/Summary/RobotPosesRejected", allRobotPosesRejected.toArray(Pose3d[]::new));
+        SmartDashboard.putNumber("Vision/tx", getTargetX(0).getDegrees());
     }
 
     @FunctionalInterface

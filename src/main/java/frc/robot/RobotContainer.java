@@ -22,33 +22,44 @@ import frc.robot.commands.DriveCommands;
 import frc.robot.commands.IntakeOutCommand;
 import frc.robot.commands.IntakeStowCommand;
 import frc.robot.commands.RunIndexterDutyCycle;
+import frc.robot.commands.ShootAutoCommand;
 import frc.robot.commands.ShootCommand;
-import frc.robot.commands.ShootFromDistanceCommand;
+import frc.robot.commands.TestTurretToPosCommand;
 import frc.robot.commands.TurretFollowCommand;
+import frc.robot.commands.TurretFollowOdometryCommand;
 import frc.robot.generated.TunerConstants;
+import frc.robot.subsystems.ClimbSubsystem;
 import frc.robot.subsystems.IndexerSubsystem;
 import frc.robot.subsystems.IntakeSubsystem;
 import frc.robot.subsystems.TestTurretSubsystem;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.GyroIO;
 import frc.robot.subsystems.drive.GyroIOPigeon2;
+import frc.robot.subsystems.drive.GyroIOSim;
 import frc.robot.subsystems.drive.ModuleIO;
+import frc.robot.subsystems.drive.ModuleIOSim;
 import frc.robot.subsystems.drive.ModuleIOTalonFX;
 import frc.robot.subsystems.shooter.Shooter;
 import frc.robot.subsystems.shooter.ShooterIO;
+import frc.robot.subsystems.shooter.ShooterIOSim;
 import frc.robot.subsystems.shooter.ShooterIOTalonFX;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionIO;
 import frc.robot.subsystems.vision.VisionIOPhotonVision;
+import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
 import frc.robot.util.TurretGridSelector;
+import frc.robot.util.TurretGridSelector.GridTarget;
+import java.util.Optional;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
+import org.ironmaple.simulation.seasonspecific.rebuilt2026.Arena2026Rebuilt;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 public class RobotContainer {
     private static final String FAR_MID_SCORE_AUTO_FILE = "Far Mid Score Auto";
     private static final String NEAR_MID_SCORE_AUTO_FILE = "Near Mid Score Auto";
+    private static final String SHOOT_ONLY_AUTO_NAME = "Shoot Only";
 
     private final Vision vision;
     private final Drive drive;
@@ -57,9 +68,11 @@ public class RobotContainer {
     private SwerveDriveSimulation driveSimulation = null;
 
     private final CommandXboxController controller = new CommandXboxController(0);
+    private final CommandXboxController navigator = new CommandXboxController(1);
 
     private final TestTurretSubsystem testTurret = new TestTurretSubsystem();
     private final IntakeSubsystem intake = new IntakeSubsystem();
+    private final ClimbSubsystem climb = new ClimbSubsystem();
     private final Field2d field = new Field2d();
 
     private final LoggedDashboardChooser<Command> autoChooser;
@@ -78,33 +91,39 @@ public class RobotContainer {
                         (robotPose) -> {});
                 cam0VisionIO = new VisionIOPhotonVision(camera0Name, robotToCamera0, drive);
                 vision = new Vision(drive, cam0VisionIO, new VisionIOPhotonVision(camera1Name, robotToCamera1, drive));
-                shooter = new Shooter(new ShooterIOTalonFX(), this::calculateDistanceToTargetMeters, drive);
+                shooter = new Shooter(
+                        new ShooterIOTalonFX(),
+                        this::calculateDistanceToTargetMeters,
+                        this::calculateDistanceToHubMeters,
+                        drive);
                 break;
 
-                // case SIM:
-                //         SimulatedArena.overrideInstance(new Arena2026Rebuilt(true));
-                //         driveSimulation =
-                //                 new SwerveDriveSimulation(Drive.getMapleSimConfig(), new Pose2d(3, 3, new
-                // Rotation2d()));
-                //         SimulatedArena.getInstance().addDriveTrainSimulation(driveSimulation);
-                //         drive = new Drive(
-                //                 new GyroIOSim(driveSimulation.getGyroSimulation()),
-                //                 new ModuleIOSim(driveSimulation.getModules()[0]),
-                //                 new ModuleIOSim(driveSimulation.getModules()[1]),
-                //                 new ModuleIOSim(driveSimulation.getModules()[2]),
-                //                 new ModuleIOSim(driveSimulation.getModules()[3]),
-                //                 driveSimulation::setSimulationWorldPose);
+            case SIM:
+                SimulatedArena.overrideInstance(new Arena2026Rebuilt(true));
+                driveSimulation =
+                        new SwerveDriveSimulation(Drive.getMapleSimConfig(), new Pose2d(3, 3, new Rotation2d()));
+                SimulatedArena.getInstance().addDriveTrainSimulation(driveSimulation);
+                drive = new Drive(
+                        new GyroIOSim(driveSimulation.getGyroSimulation()),
+                        new ModuleIOSim(driveSimulation.getModules()[0]),
+                        new ModuleIOSim(driveSimulation.getModules()[1]),
+                        new ModuleIOSim(driveSimulation.getModules()[2]),
+                        new ModuleIOSim(driveSimulation.getModules()[3]),
+                        driveSimulation::setSimulationWorldPose);
 
-                //         vision = new Vision(
-                //                 drive,
-                //                 // new VisionIOPhotonVisionSim(
-                //                 //         camera0Name, robotToCamera0, driveSimulation::getSimulatedDriveTrainPose),
-                //                 // new VisionIOPhotonVisionSim(
-                //                 //         camera1Name, robotToCamera1,
-                // driveSimulation::getSimulatedDriveTrainPose));
-                //         shooter = new Shooter(new ShooterIOSim(), this::calculateDistanceToTargetMeters, drive);
-                //         cam0VisionIO = new VisionIOPhotonVision(camera0Name, robotToCamera0, drive);
-                // break;
+                vision = new Vision(
+                        drive,
+                        new VisionIOPhotonVisionSim(
+                                camera0Name, robotToCamera0, driveSimulation::getSimulatedDriveTrainPose, drive),
+                        new VisionIOPhotonVisionSim(
+                                camera1Name, robotToCamera1, driveSimulation::getSimulatedDriveTrainPose, drive));
+                shooter = new Shooter(
+                        new ShooterIOSim(),
+                        this::calculateDistanceToTargetMeters,
+                        this::calculateDistanceToHubMeters,
+                        drive);
+                cam0VisionIO = new VisionIOPhotonVision(camera0Name, robotToCamera0, drive);
+                break;
 
             default:
                 drive = new Drive(
@@ -115,7 +134,11 @@ public class RobotContainer {
                         new ModuleIO() {},
                         (robotPose) -> {});
                 vision = new Vision(drive, new VisionIO() {}, new VisionIO() {});
-                shooter = new Shooter(new ShooterIO() {}, this::calculateDistanceToTargetMeters, drive);
+                shooter = new Shooter(
+                        new ShooterIO() {},
+                        this::calculateDistanceToTargetMeters,
+                        this::calculateDistanceToHubMeters,
+                        drive);
                 cam0VisionIO = new VisionIOPhotonVision(camera0Name, robotToCamera0, drive);
                 break;
         }
@@ -126,6 +149,7 @@ public class RobotContainer {
         autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
         autoChooser.addOption("Far Mid Semantic Auto", buildAllianceCorrectFarMidAuto());
         autoChooser.addOption("Near Mid Semantic Auto", buildAllianceCorrectNearMidAuto());
+        autoChooser.addOption("Shoot Only", buildShootOnlyAuto());
 
         autoChooser.addOption("Drive Wheel Radius Characterization", DriveCommands.wheelRadiusCharacterization(drive));
         autoChooser.addOption("Drive Simple FF Characterization", DriveCommands.feedforwardCharacterization(drive));
@@ -165,28 +189,14 @@ public class RobotContainer {
                         .withName("Stop Rollers"));
 
         NamedCommands.registerCommand(
-                "Spin Up Shooter",
-                Commands.runOnce(
-                                () -> {
-                                    shooter.runFlywheelDefaultSpeed();
-                                    shooter.setHoodAngleDegrees(
-                                            Constants.ShooterConstants.HOOD_TARGET_DEGREES_DASHBOARD_DEFAULT);
-                                },
-                                shooter)
-                        .withName("Spin Up Shooter"));
-
-        NamedCommands.registerCommand(
-                "Wait For Shooter", Commands.waitSeconds(1.0).withName("Wait For Shooter"));
-
-        NamedCommands.registerCommand(
-                "Feed Shooter",
+                "Shoot",
                 Commands.deadline(
                                 Commands.waitSeconds(1.5),
                                 new RunIndexterDutyCycle(
                                         indexer,
                                         Constants.ShooterConstants.SPINDEXER_FEED_DUTY,
                                         Constants.ShooterConstants.SHOOTER_KICKER_FEED_DUTY))
-                        .withName("Feed Shooter"));
+                        .withName("Shoot"));
 
         NamedCommands.registerCommand(
                 "Stop Shooter",
@@ -227,10 +237,32 @@ public class RobotContainer {
                 .withName("Near Mid Semantic Auto");
     }
 
+    private Command buildShootOnlyAuto() {
+        return new ShootAutoCommand(shooter, indexer);
+    }
+
     private void configureButtonBindings() {
         drive.setDefaultCommand(DriveCommands.joystickDrive(
                 drive, () -> -controller.getLeftY(), () -> -controller.getLeftX(), () -> -controller.getRightX()));
-        testTurret.setDefaultCommand(new TurretFollowCommand(vision, testTurret, drive, 0));
+        testTurret.setDefaultCommand(new TurretFollowOdometryCommand(vision, testTurret, drive, 0));
+
+        controller.b().whileTrue(new TurretFollowCommand(vision, testTurret, drive, 0));
+        navigator.povUp().onTrue(new TestTurretToPosCommand(testTurret, -90));
+        navigator.povDown().onTrue(new TestTurretToPosCommand(testTurret, 90));
+        navigator.povLeft().onTrue(new TestTurretToPosCommand(testTurret, 0));
+        navigator.povRight().onTrue(new TestTurretToPosCommand(testTurret, 180));
+
+        navigator.b().onTrue(Commands.runOnce(() -> climb.setDutyCycle(0.4)));
+        navigator.a().onTrue(Commands.runOnce(() -> climb.setDutyCycle(-0.4)));
+
+        controller
+                .povUp()
+                .onTrue(Commands.runOnce(
+                        () -> climb.setTargetPositionRotations(Constants.ClimbConstants.TARGET_POSITION_ROTATIONS)));
+        controller
+                .povDown()
+                .onTrue(Commands.runOnce(
+                        () -> climb.setTargetPositionRotations(Constants.ClimbConstants.HOME_POSITION_ROTATIONS)));
 
         controller
                 .start()
@@ -256,7 +288,7 @@ public class RobotContainer {
         //                         Constants.ShooterConstants.TUNING_DISTANCE_METERS_DASHBOARD_DEFAULT)));
         controller.x().whileTrue(new ShootCommand(shooter));
 
-        controller.leftBumper().whileTrue(new ShootFromDistanceCommand(shooter));
+        controller.leftBumper().whileTrue(new ShootCommand(shooter));
 
         controller
                 .rightBumper()
@@ -310,8 +342,41 @@ public class RobotContainer {
         field.getObject("TurretTarget").setPose(targetPose);
     }
 
-    private double calculateDistanceToTargetMeters() {
+    public int getGridSelectorTagID() {
+        Pose2d robotPose = drive.getPose();
+        Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+
+        GridTarget target = TurretGridSelector.select(robotPose, alliance, Optional.empty());
+
+        return target.primaryTagId();
+    }
+
+    public String getGridZone() {
+        Pose2d robotPose = drive.getPose();
+        Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+
+        GridTarget target = TurretGridSelector.select(robotPose, alliance, Optional.empty());
+        return target.zone().name();
+    }
+
+    public double calculateDistanceToTargetMeters() {
 
         return cam0VisionIO.calcTagDistance();
+    }
+
+    public double calculateDistanceToHubMeters() {
+        Pose2d robotPose = drive.getPose();
+        Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+
+        double hubX, hubY;
+        if (alliance == Alliance.Blue) {
+            hubX = Constants.blueHubX;
+            hubY = Constants.blueHubY;
+        } else {
+            hubX = Constants.redHubX;
+            hubY = Constants.redHubY;
+        }
+
+        return Math.hypot(hubX - robotPose.getX(), hubY - robotPose.getY());
     }
 }
