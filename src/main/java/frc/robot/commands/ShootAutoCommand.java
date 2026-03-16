@@ -1,5 +1,6 @@
 package frc.robot.commands;
 
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.Constants.ShooterConstants;
 import frc.robot.subsystems.IndexerSubsystem;
@@ -8,6 +9,7 @@ import frc.robot.subsystems.shooter.Shooter;
 public class ShootAutoCommand extends Command {
     private final Shooter shooter;
     private final IndexerSubsystem indexer;
+    private Timer timer = new Timer();
 
     public ShootAutoCommand(Shooter shooter, IndexerSubsystem indexer) {
         this.shooter = shooter;
@@ -16,17 +18,17 @@ public class ShootAutoCommand extends Command {
     }
 
     @Override
-    public void execute() {
-        shooter.runShotFromDistance();
+    public void initialize() {
+        timer.restart();
+        timer.start();
+    }
 
-        if (shooter.atFlywheelSpeed(
-                shooter.evaluateFlywheelRps(shooter.evaluateHoodDegrees()),
-                ShooterConstants.FLYWHEEL_SPEED_TOLERANCE_RPS)) {
+    @Override
+    public void execute() {
+        shooter.runShot(0.5, 55);
+        if (timer.hasElapsed(0.5)) {
             indexer.setSpindexerDutyCycle(ShooterConstants.SPINDEXER_FEED_DUTY);
             indexer.setShooterIndexerDutyCycle(ShooterConstants.SHOOTER_KICKER_FEED_DUTY);
-        } else {
-            indexer.stopSpindexer();
-            indexer.stopShooterIndexer();
         }
     }
 
@@ -40,6 +42,6 @@ public class ShootAutoCommand extends Command {
 
     @Override
     public boolean isFinished() {
-        return false;
+        return timer.hasElapsed(7);
     }
 }

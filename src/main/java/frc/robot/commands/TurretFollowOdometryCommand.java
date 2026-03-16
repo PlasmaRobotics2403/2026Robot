@@ -97,9 +97,9 @@ public class TurretFollowOdometryCommand extends Command {
         double fieldAngle = calcAngle(hubX, hubY, robotPose);
 
         double turretAngle =
-                fieldAngle - (robotPose.getRotation().getRadians() - Math.toRadians(180)) - Math.toRadians(90);
+                Math.toRadians(90) - (fieldAngle - robotPose.getRotation().getRadians() - Math.toRadians(180));
         turretAngle = applyUnwind(turretAngle);
-        turretAngle = MathUtil.angleModulus(turretAngle);
+        // turretAngle = MathUtil.angleModulus(turretAngle);
 
         return turretAngle;
     }

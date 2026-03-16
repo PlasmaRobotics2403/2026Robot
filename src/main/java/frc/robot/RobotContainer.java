@@ -16,6 +16,7 @@ import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.commands.DriveCommands;
@@ -24,9 +25,10 @@ import frc.robot.commands.IntakeStowCommand;
 import frc.robot.commands.RunIndexterDutyCycle;
 import frc.robot.commands.ShootAutoCommand;
 import frc.robot.commands.ShootCommand;
+import frc.robot.commands.ShootFromDistanceToHubCommand;
 import frc.robot.commands.TestTurretToPosCommand;
+import frc.robot.commands.TestTurretToPosCommandStatic;
 import frc.robot.commands.TurretFollowCommand;
-import frc.robot.commands.TurretFollowOdometryCommand;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.ClimbSubsystem;
 import frc.robot.subsystems.IndexerSubsystem;
@@ -238,13 +240,18 @@ public class RobotContainer {
     }
 
     private Command buildShootOnlyAuto() {
-        return new ShootAutoCommand(shooter, indexer);
+        SequentialCommandGroup commandGroup = new SequentialCommandGroup();
+        commandGroup.addCommands(
+                Commands.runOnce(
+                        () -> drive.resetOdometry(new Pose2d(drive.getPose().getTranslation(), new Rotation2d()))),
+                new ShootAutoCommand(shooter, indexer));
+        return commandGroup;
     }
 
     private void configureButtonBindings() {
         drive.setDefaultCommand(DriveCommands.joystickDrive(
                 drive, () -> -controller.getLeftY(), () -> -controller.getLeftX(), () -> -controller.getRightX()));
-        testTurret.setDefaultCommand(new TurretFollowOdometryCommand(vision, testTurret, drive, 0));
+        testTurret.setDefaultCommand(new TurretFollowCommand(vision, testTurret, drive, 0));
 
         controller.b().whileTrue(new TurretFollowCommand(vision, testTurret, drive, 0));
         navigator.povUp().onTrue(new TestTurretToPosCommand(testTurret, -90));
@@ -288,8 +295,12 @@ public class RobotContainer {
         //                         Constants.ShooterConstants.TUNING_DISTANCE_METERS_DASHBOARD_DEFAULT)));
         controller.x().whileTrue(new ShootCommand(shooter));
 
-        controller.leftBumper().whileTrue(new ShootCommand(shooter));
-
+        controller.leftBumper().whileTrue(new ShootFromDistanceToHubCommand(shooter));
+        controller.leftBumper().whileTrue(new ShootFromDistanceToHubCommand(shooter));
+        controller
+                .y()
+                .whileTrue(Commands.startEnd(
+                        () -> indexer.setSpindexerDutyCycle(-0.5), () -> indexer.stopSpindexer(), indexer));
         controller
                 .rightBumper()
                 .and(controller.leftBumper())
@@ -297,6 +308,14 @@ public class RobotContainer {
                         indexer,
                         Constants.ShooterConstants.SPINDEXER_FEED_DUTY,
                         Constants.ShooterConstants.SHOOTER_KICKER_FEED_DUTY));
+        controller
+                .rightBumper()
+                .and(controller.x())
+                .whileTrue(new TestTurretToPosCommandStatic(testTurret)
+                        .andThen(new RunIndexterDutyCycle(
+                                indexer,
+                                Constants.ShooterConstants.SPINDEXER_FEED_DUTY,
+                                Constants.ShooterConstants.SHOOTER_KICKER_FEED_DUTY)));
     }
 
     public Command getAutonomousCommand() {
@@ -366,6 +385,7 @@ public class RobotContainer {
 
     public double calculateDistanceToHubMeters() {
         Pose2d robotPose = drive.getPose();
+
         Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
 
         double hubX, hubY;

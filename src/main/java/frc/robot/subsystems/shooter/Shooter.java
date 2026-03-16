@@ -284,8 +284,8 @@ public class Shooter extends SubsystemBase {
 
     public void setHoodPositionRotations(double rotations) {
         controlMode = ControlMode.HOOD_POSITION;
-        hoodSetpointRotations = rotations;
-        io.setHoodPositionRotations(rotations);
+        hoodSetpointRotations = clampHoodRotations(rotations);
+        io.setHoodPositionRotations(hoodSetpointRotations);
     }
 
     public void setHoodAngleDegrees(double angleDeg) {
@@ -351,6 +351,10 @@ public class Shooter extends SubsystemBase {
         return hoodRotations * ShooterConstants.HOOD_MOTOR_ROTATIONS_PER_HOOD_ROTATION;
     }
 
+    public static double clampHoodRotations(double rotations) {
+        return MathUtil.clamp(rotations, 0.0, ShooterConstants.HOOD_MAX_ROTATIONS);
+    }
+
     public static double motorRotationsToHoodDegrees(double motorRotations) {
         double hoodRotations = motorRotations / ShooterConstants.HOOD_MOTOR_ROTATIONS_PER_HOOD_ROTATION;
         return hoodRotations * 360.0 + ShooterConstants.HOOD_ZERO_ANGLE_DEGREES;
@@ -379,12 +383,17 @@ public class Shooter extends SubsystemBase {
 
     public double evaluateFlywheelRpsHub() {
         double distance = hubDistanceSupplier.getAsDouble();
-        return distance; // add logic for evaluating flywheel RPM based on hub distance
+        return 45.61898 * Math.pow(distance, 0.226958); // add logic for evaluating flywheel RPM based on hub distance
     }
 
     public double evaluateHoodDegreesHub() {
         double distance = hubDistanceSupplier.getAsDouble();
-        return 0; // add logic for evaluating hood angle based on hub distance
+        return (0.991255)
+                / (1
+                        + Math.pow(
+                                Math.E,
+                                -(5.30038 * distance
+                                        - 20.33586))); // add logic for evaluating hood angle based on hub distance
     }
 
     private static String formatSampleRow(double distanceMeters, double hoodTargetDeg, double flywheelTargetRps) {

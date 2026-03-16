@@ -37,11 +37,14 @@ public class ShooterIOSim implements ShooterIO {
             double maxDelta = 0.04;
             double error = hoodPositionTargetRotations - hoodPositionRotations;
             double delta = MathUtil.clamp(error, -maxDelta, maxDelta);
-            hoodPositionRotations += delta;
-            hoodVelocityRps = delta / 0.02;
+            double nextPosition = Shooter.clampHoodRotations(hoodPositionRotations + delta);
+            hoodVelocityRps = (nextPosition - hoodPositionRotations) / 0.02;
+            hoodPositionRotations = nextPosition;
         } else {
             hoodVelocityRps = hoodDutyCycle;
-            hoodPositionRotations += hoodVelocityRps * 0.02;
+            double nextPosition = Shooter.clampHoodRotations(hoodPositionRotations + hoodVelocityRps * 0.02);
+            hoodVelocityRps = (nextPosition - hoodPositionRotations) / 0.02;
+            hoodPositionRotations = nextPosition;
         }
 
         inputs.hoodPositionRotations = hoodPositionRotations;
@@ -74,7 +77,7 @@ public class ShooterIOSim implements ShooterIO {
     @Override
     public void setHoodPositionRotations(double rotations) {
         hoodPositionControlEnabled = true;
-        hoodPositionTargetRotations = rotations;
+        hoodPositionTargetRotations = Shooter.clampHoodRotations(rotations);
         hoodDutyCycle = 0.0;
     }
 

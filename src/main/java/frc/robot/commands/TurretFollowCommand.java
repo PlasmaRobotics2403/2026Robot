@@ -28,6 +28,7 @@ public class TurretFollowCommand extends Command {
 
     private int cameraIndex;
     private Timer timer = new Timer();
+    double offset = 0;
 
     public TurretFollowCommand(Vision vision, TestTurretSubsystem turret, Drive drive, int cameraIndex) {
         this.vision = vision;
@@ -43,6 +44,8 @@ public class TurretFollowCommand extends Command {
 
     @Override
     public void execute() {
+        SmartDashboard.putNumber("Turret/Follow/Offset", offset);
+        offset = SmartDashboard.getNumber("Turret/Follow/Offset", 0);
         Pose2d robotPose = drive.getPose();
         Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
 
@@ -51,6 +54,8 @@ public class TurretFollowCommand extends Command {
         int tagID = target.primaryTagId();
         Rotation2d tx = vision.getTargetXForTag(cameraIndex, tagID);
         double angle = applyUnwind(turret.getPositionRadians() + tx.getRadians());
+
+        angle += offset;
         angle = applyUnwind(angle);
 
         boolean seesTag = vision.seesTag(cameraIndex, tagID);
@@ -95,8 +100,8 @@ public class TurretFollowCommand extends Command {
     }
 
     private double applyUnwind(double targetAngle) {
-        double min = TurretConstants.MIN_ANGLE_DEG;
-        double max = TurretConstants.MAX_ANGLE_DEG;
+        double min = Math.toRadians(TurretConstants.MIN_ANGLE_DEG);
+        double max = Math.toRadians(TurretConstants.MAX_ANGLE_DEG);
 
         while (targetAngle < min) {
             targetAngle += 2 * Math.PI;

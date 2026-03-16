@@ -8,7 +8,6 @@ import com.ctre.phoenix6.controls.PositionVoltage;
 import com.ctre.phoenix6.controls.VoltageOut;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.NeutralModeValue;
-import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.units.measure.Angle;
@@ -27,7 +26,7 @@ public class TestTurretSubsystem extends SubsystemBase {
     public static final int TALON_ID = 20;
 
     public static final String CAN_BUS = "rio";
-    public static final double GEAR_RATIO = 26;
+    public static final double GEAR_RATIO = 24;
 
     private static final String DASHBOARD_PID_PREFIX = "Turret PID/";
     private static final String FOLLOW_OFFSET_DASHBOARD_KEY = "Turret/Follow/OffsetDeg";
@@ -151,7 +150,8 @@ public class TestTurretSubsystem extends SubsystemBase {
 
     /** Sets the turret target angle in radians (post-gearbox). */
     public void setTargetAngleRadians(double angleRad) {
-        targetAngleRad = MathUtil.clamp(angleRad, MIN_ANGLE_RAD, MAX_ANGLE_RAD);
+        // targetAngleRad = MathUtil.clamp(angleRad, MIN_ANGLE_RAD, MAX_ANGLE_RAD);
+        targetAngleRad = angleRad;
         controlEnabled = true;
 
         double rotorRotations = Units.radiansToRotations(targetAngleRad) * GEAR_RATIO;

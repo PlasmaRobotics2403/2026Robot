@@ -6,6 +6,7 @@ import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.configs.Slot0Configs;
+import com.ctre.phoenix6.configs.SoftwareLimitSwitchConfigs;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.DutyCycleOut;
 import com.ctre.phoenix6.controls.NeutralOut;
@@ -94,6 +95,9 @@ public class ShooterIOTalonFX implements ShooterIO {
                 : InvertedValue.CounterClockwise_Positive;
         hoodConfig.CurrentLimits.SupplyCurrentLimit = ShooterConstants.HOOD_SUPPLY_CURRENT_LIMIT;
         hoodConfig.CurrentLimits.SupplyCurrentLimitEnable = true;
+        hoodConfig.SoftwareLimitSwitch = new SoftwareLimitSwitchConfigs()
+                .withForwardSoftLimitEnable(true)
+                .withForwardSoftLimitThreshold(ShooterConstants.HOOD_MAX_ROTATIONS);
         hoodConfig.Slot0 = new Slot0Configs()
                 .withKP(ShooterConstants.HOOD_KP)
                 .withKI(ShooterConstants.HOOD_KI)

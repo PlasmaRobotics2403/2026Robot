@@ -89,7 +89,7 @@ public final class Constants {
         public static final double FLYWHEEL_KA = 0.0;
         public static final String FLYWHEEL_PID_DASHBOARD_PREFIX = "Shooter/Flywheel/PID/";
 
-        public static final double FLYWHEEL_DEFAULT_RPS = 60.0;
+        public static final double FLYWHEEL_DEFAULT_RPS = 55.0;
         public static final double FLYWHEEL_SPEED_TOLERANCE_RPS = 2.0;
         public static final String FLYWHEEL_TARGET_RPS_DASHBOARD_KEY = "Shooter/Flywheel/TargetRps";
         public static final double FLYWHEEL_TARGET_RPS_DASHBOARD_DEFAULT = FLYWHEEL_DEFAULT_RPS;
@@ -106,6 +106,7 @@ public final class Constants {
         public static final double HOOD_POSITION_TOLERANCE_ROTATIONS = 0.01;
         public static final double HOOD_MOTOR_ROTATIONS_PER_HOOD_ROTATION = 1.0;
         public static final double HOOD_ZERO_ANGLE_DEGREES = 0.0;
+        public static final double HOOD_MAX_ROTATIONS = 1.7;
         public static final String HOOD_TARGET_DASHBOARD_KEY = "Shooter/Hood/TargetRotations";
         public static final double HOOD_TARGET_DASHBOARD_DEFAULT_ROTATIONS = 0.0;
         public static final String HOOD_TARGET_DEGREES_DASHBOARD_KEY = "Shooter/Hood/TargetDeg";

@@ -26,7 +26,7 @@ public class TestTurretToPosCommand extends Command {
 
     @Override
     public void initialize() {
-        targetAngleRad = Math.min(Math.max(kTestAngle, -kMaxAngleRad), kMaxAngleRad);
+        targetAngleRad = kTestAngle;
         targetAngleLimiter.reset(turret.getPositionRadians());
         turret.setTargetAngleRadians(turret.getPositionRadians());
     }
@@ -41,13 +41,13 @@ public class TestTurretToPosCommand extends Command {
     @Override
     public void end(boolean interrupted) {
         // When the A button is released, command the turret back to zero and keep holding.
-        targetAngleRad = kZeroAngleRad;
-        targetAngleLimiter.reset(turret.getPositionRadians());
-        turret.setTargetAngleRadians(kZeroAngleRad);
+        // targetAngleRad = kZeroAngleRad;
+        // targetAngleLimiter.reset(turret.getPositionRadians());
+        // turret.setTargetAngleRadians(kZeroAngleRad);
     }
 
     @Override
     public boolean isFinished() {
-        return false;
+        return true;
     }
 }
