@@ -3,7 +3,7 @@ package frc.robot.commands;
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
@@ -64,27 +64,6 @@ public class TurretFollowOdometryCommand extends Command {
         return true;
     }
 
-    private double aimUsingOdometry(Pose2d robotPose, int tagID) {
-        Optional<Pose3d> tagPoseOptional = layout.getTagPose(tagID);
-
-        if (tagPoseOptional.isEmpty()) {
-            return turret.getPositionRadians();
-        }
-
-        Pose2d tagPose = tagPoseOptional.get().toPose2d();
-        Translation2d robot = robotPose.getTranslation();
-        Translation2d tag = tagPose.getTranslation();
-
-        double fieldAngle = calcAngle(tagID, tagID, robotPose);
-
-        double turretAngle =
-                fieldAngle - (robotPose.getRotation().getRadians() - Math.toRadians(180)) - Math.toRadians(90);
-        turretAngle = MathUtil.angleModulus(turretAngle);
-        turretAngle = applyUnwind(turretAngle);
-
-        return turretAngle;
-    }
-
     private double aimUsingOdometryCenterHub(Pose2d robotPose, Alliance alliance) {
         double hubX, hubY;
         if (alliance == Alliance.Blue) {
@@ -94,19 +73,28 @@ public class TurretFollowOdometryCommand extends Command {
             hubX = Constants.redHubX;
             hubY = Constants.redHubY;
         }
-        double fieldAngle = calcAngle(hubX, hubY, robotPose);
 
-        double turretAngle =
-                Math.toRadians(90) - (fieldAngle - robotPose.getRotation().getRadians() - Math.toRadians(180));
-        turretAngle = applyUnwind(turretAngle);
-        // turretAngle = MathUtil.angleModulus(turretAngle);
+        Rotation2d robotHeading = robotPose.getRotation();
+        Translation2d robotTranslation = robotPose.getTranslation();
 
-        return turretAngle;
-    }
+        Translation2d turretOffsetRobot = TurretConstants.TURRET_PIVOT_FROM_ROBOT_CENTER;
+        Translation2d turretOffsetField = turretOffsetRobot.rotateBy(robotHeading);
+        Translation2d turretField = robotTranslation.plus(turretOffsetField);
 
-    private double calcAngle(double hubX, double hubY, Pose2d robotPose) {
-        double fieldAngle = Math.atan2(hubY - robotPose.getY(), hubX - robotPose.getX());
-        return fieldAngle;
+        Translation2d hubField = new Translation2d(hubX, hubY);
+        Translation2d turretToHubField = hubField.minus(turretField);
+
+        Rotation2d targetFieldAngle = turretToHubField.getAngle();
+        Rotation2d targetRobotAngle = targetFieldAngle.minus(robotHeading);
+
+        Rotation2d turretZeroAngle = Rotation2d.fromDegrees(90);
+
+        Rotation2d turretCommand = targetRobotAngle.minus(turretZeroAngle);
+
+        double targetRadians = MathUtil.angleModulus(turretCommand.getRadians());
+        targetRadians = applyUnwind(targetRadians);
+
+        return targetRadians;
     }
 
     private double applyUnwind(double targetAngle) {

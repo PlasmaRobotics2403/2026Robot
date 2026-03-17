@@ -29,6 +29,7 @@ import frc.robot.commands.ShootFromDistanceToHubCommand;
 import frc.robot.commands.TestTurretToPosCommand;
 import frc.robot.commands.TestTurretToPosCommandStatic;
 import frc.robot.commands.TurretFollowCommand;
+import frc.robot.commands.TurretFollowOdometryCommand;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.ClimbSubsystem;
 import frc.robot.subsystems.IndexerSubsystem;
@@ -251,7 +252,7 @@ public class RobotContainer {
     private void configureButtonBindings() {
         drive.setDefaultCommand(DriveCommands.joystickDrive(
                 drive, () -> -controller.getLeftY(), () -> -controller.getLeftX(), () -> -controller.getRightX()));
-        testTurret.setDefaultCommand(new TurretFollowCommand(vision, testTurret, drive, 0));
+        testTurret.setDefaultCommand(new TurretFollowOdometryCommand(vision, testTurret, drive, 0));
 
         controller.b().whileTrue(new TurretFollowCommand(vision, testTurret, drive, 0));
         navigator.povUp().onTrue(new TestTurretToPosCommand(testTurret, -90));

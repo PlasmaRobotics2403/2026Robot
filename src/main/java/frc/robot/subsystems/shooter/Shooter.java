@@ -163,7 +163,7 @@ public class Shooter extends SubsystemBase {
         SmartDashboard.putNumber("Shooter/Flywheel/ActiveTargetRps", flywheelSetpointRps);
         SmartDashboard.putNumber("Shooter/Hood/CurrentRotations", inputs.hoodPositionRotations);
         SmartDashboard.putNumber("Shooter/Hood/CurrentDeg", getHoodAngleDegrees());
-        SmartDashboard.putNumber("Turret/TagDistance", tuningDistanceSupplier.getAsDouble());
+        // SmartDashboard.putNumber("Turret/TagDistance", tuningDistanceSupplier.getAsDouble());
         SmartDashboard.putNumber("", 0);
         SmartDashboard.putNumber(
                 ShooterConstants.HOOD_TARGET_DEGREES_DASHBOARD_KEY, motorRotationsToHoodDegrees(hoodSetpointRotations));
