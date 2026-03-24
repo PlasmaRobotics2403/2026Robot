@@ -5,27 +5,40 @@
     "data": {
       "commands": [
         {
-          "type": "path",
+          "type": "named",
           "data": {
-            "pathName": "NearMidAuto"
+            "name": "Shoot"
           }
         },
         {
           "type": "named",
           "data": {
-            "name": "Spin Up Shooter"
+            "name": "Stop Shooter"
+          }
+        },
+        {
+          "type": "deadline",
+          "data": {
+            "commands": [
+              {
+                "type": "named",
+                "data": {
+                  "name": "Deploy Intake"
+                }
+              },
+              {
+                "type": "path",
+                "data": {
+                  "pathName": "NearMidAuto"
+                }
+              }
+            ]
           }
         },
         {
           "type": "named",
           "data": {
-            "name": "Wait For Shooter"
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "Feed Shooter"
+            "name": "Shoot"
           }
         },
         {

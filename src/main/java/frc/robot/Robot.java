@@ -69,6 +69,8 @@ public class Robot extends LoggedRobot {
         SmartDashboard.putNumber("GridSelector/gridTargetID", robotContainer.getGridSelectorTagID());
         SmartDashboard.putString("GridSelector/targetGrid", robotContainer.getGridZone());
         SmartDashboard.putNumber("Turret/TagDistance", robotContainer.calculateDistanceToHubMeters());
+
+        SmartDashboard.putNumber("RobotY", robotContainer.getRobotY());
     }
 
     @Override

@@ -6,16 +6,6 @@ import static edu.wpi.first.units.Units.Kilograms;
 import static edu.wpi.first.units.Units.MetersPerSecond;
 import static edu.wpi.first.units.Units.Volts;
 
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Consumer;
-
-import org.ironmaple.simulation.drivesims.COTS;
-import org.ironmaple.simulation.drivesims.configs.DriveTrainSimulationConfig;
-import org.ironmaple.simulation.drivesims.configs.SwerveModuleSimulationConfig;
-import org.littletonrobotics.junction.AutoLogOutput;
-import org.littletonrobotics.junction.Logger;
-
 import com.ctre.phoenix6.CANBus;
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.config.ModuleConfig;
@@ -24,7 +14,6 @@ import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 import com.pathplanner.lib.pathfinding.Pathfinding;
 import com.pathplanner.lib.util.PathPlannerLogging;
-
 import edu.wpi.first.hal.FRCNetComm.tInstances;
 import edu.wpi.first.hal.FRCNetComm.tResourceType;
 import edu.wpi.first.hal.HAL;
@@ -46,6 +35,7 @@ import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
@@ -55,6 +45,14 @@ import frc.robot.Constants.TurretConstants;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.util.LocalADStarAK;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
+import org.ironmaple.simulation.drivesims.COTS;
+import org.ironmaple.simulation.drivesims.configs.DriveTrainSimulationConfig;
+import org.ironmaple.simulation.drivesims.configs.SwerveModuleSimulationConfig;
+import org.littletonrobotics.junction.AutoLogOutput;
+import org.littletonrobotics.junction.Logger;
 
 public class Drive extends SubsystemBase implements Vision.VisionConsumer {
     static final double ODOMETRY_FREQUENCY =
@@ -72,6 +70,9 @@ public class Drive extends SubsystemBase implements Vision.VisionConsumer {
     private static final double WHEEL_COF = 2.255;
     public static final double SIM_BUMPER_LENGTH_IN = 32.5;
     public static final double SIM_BUMPER_WIDTH_IN = 32.5;
+
+    public double velocityToMetersConstant = -1;
+
     private static final RobotConfig PP_CONFIG = new RobotConfig(
             ROBOT_MASS_KG,
             ROBOT_MOI,
@@ -146,7 +147,7 @@ public class Drive extends SubsystemBase implements Vision.VisionConsumer {
                 this::resetOdometry,
                 this::getChassisSpeeds,
                 this::runVelocity,
-                new PPHolonomicDriveController(new PIDConstants(5.0, 0.0, 0.0), new PIDConstants(5.0, 0.0, 0.0)),
+                new PPHolonomicDriveController(new PIDConstants(10.0, 0.0, 0.0), new PIDConstants(9.0, 0.0, 0.0)),
                 PP_CONFIG,
                 () -> DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red,
                 this);
@@ -162,6 +163,7 @@ public class Drive extends SubsystemBase implements Vision.VisionConsumer {
                 new SysIdRoutine.Config(
                         null, null, null, (state) -> Logger.recordOutput("Drive/SysIdState", state.toString())),
                 new SysIdRoutine.Mechanism((voltage) -> runCharacterization(voltage.in(Volts)), null, this));
+        SmartDashboard.putNumber("VelocityToMetersConstant", velocityToMetersConstant);
     }
 
     @Override
@@ -170,6 +172,9 @@ public class Drive extends SubsystemBase implements Vision.VisionConsumer {
         gyroIO.updateInputs(gyroInputs);
         Logger.processInputs("Drive/Gyro", gyroInputs);
         Logger.recordOutput("Swerve/Estimated Pos", getPose());
+
+        velocityToMetersConstant = SmartDashboard.getNumber("VelocityToMetersConstant", 0);
+
         for (var module : modules) {
             module.periodic();
         }
@@ -229,36 +234,39 @@ public class Drive extends SubsystemBase implements Vision.VisionConsumer {
         Logger.recordOutput("SwerveStates/SetpointsOptimized", setpointStates);
     }
 
-    public Translation2d getVelocityCompensatedTargetTranslation(Translation2d targetField, double velocityToMetersConstant) {
+    public Translation2d getVelocityCompensatedTargetTranslation(Translation2d targetField) {
         ChassisSpeeds fieldRelativeSpeeds = getFieldRelativeVelocity();
 
         double offsetX = fieldRelativeSpeeds.vxMetersPerSecond * velocityToMetersConstant;
         double offsetY = fieldRelativeSpeeds.vyMetersPerSecond * velocityToMetersConstant;
 
-        return new Translation2d(
-                targetField.getX() + offsetX,
-                targetField.getY() + offsetY);
+        return new Translation2d(targetField.getX() + offsetX, targetField.getY() + offsetY);
+        // return new Translation2d(targetField.getX(), targetField.getY());
     }
 
-    public double calcTurretAngle(Translation2d targetField, double velocityToMetersConstant) {
+    public double calcTurretAngle(Translation2d targetField) {
         Pose2d robotPose = getPose();
-        Rotation2d robotHeading = robotPose.getRotation();
+        // robotPose = new Pose2d(robotPose.getX(), robotPose.getY(), new Rotation2d());
+        // Rotation2d robotHeading = robotPose.getRotation();
         Translation2d robotTranslation = robotPose.getTranslation();
 
-        Translation2d compensatedTarget = getVelocityCompensatedTargetTranslation(targetField, velocityToMetersConstant);
+        Translation2d compensatedTarget = getVelocityCompensatedTargetTranslation(targetField);
 
         Translation2d turretOffsetRobot = TurretConstants.TURRET_PIVOT_FROM_ROBOT_CENTER;
-        Translation2d turretOffsetField = turretOffsetRobot.rotateBy(robotHeading);
+        Translation2d turretOffsetField = turretOffsetRobot.rotateBy(
+                new Rotation2d(robotPose.getRotation().getRadians()));
         Translation2d turretField = robotTranslation.plus(turretOffsetField);
 
+        // Translation2d turretToTargetField = compensatedTarget.minus(robotTranslation);
         Translation2d turretToTargetField = compensatedTarget.minus(turretField);
 
         Rotation2d targetFieldAngle = turretToTargetField.getAngle();
-        Rotation2d targetRobotAngle = targetFieldAngle.minus(robotHeading);
+        Rotation2d targetRobotAngle =
+                targetFieldAngle.minus(new Rotation2d(robotPose.getRotation().getRadians()));
 
         // Turret zero is robot-left
         Rotation2d turretZeroAngle = Rotation2d.fromDegrees(90.0);
-        Rotation2d turretCommand = targetRobotAngle.minus(turretZeroAngle);
+        Rotation2d turretCommand = turretZeroAngle.minus(targetRobotAngle);
 
         double targetRadians = MathUtil.angleModulus(turretCommand.getRadians());
         targetRadians = applyTurretUnwind(targetRadians);
@@ -281,14 +289,11 @@ public class Drive extends SubsystemBase implements Vision.VisionConsumer {
         return targetAngle;
     }
 
-    public double distanceToTargetMeters(Translation2d targetField, double velocityToMetersConstant) {
-        Translation2d compensatedTarget = getVelocityCompensatedTargetTranslation(targetField, velocityToMetersConstant);
+    public double distanceToTargetMeters(Translation2d targetField) {
+        Translation2d compensatedTarget = getVelocityCompensatedTargetTranslation(targetField);
 
         return getPose().getTranslation().getDistance(compensatedTarget);
     }
-
-
-
 
     public void runCharacterization(double output) {
         for (int i = 0; i < 4; i++) {

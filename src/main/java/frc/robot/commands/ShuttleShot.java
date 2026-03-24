@@ -9,14 +9,17 @@ import frc.robot.Constants.ShooterConstants;
 import frc.robot.subsystems.TestTurretSubsystem;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.shooter.Shooter;
+import java.util.function.DoubleSupplier;
 
-public class ShootFromDistanceToHubCommand extends Command {
+public class ShuttleShot extends Command {
     private final Shooter shooter;
+    private double currentYPos;
     private final TestTurretSubsystem turret;
     private final Drive drive;
 
-    public ShootFromDistanceToHubCommand(Shooter shooter, TestTurretSubsystem turret, Drive drive) {
+    public ShuttleShot(Shooter shooter, DoubleSupplier currentYPos, TestTurretSubsystem turret, Drive drive) {
         this.shooter = shooter;
+        this.currentYPos = currentYPos.getAsDouble();
         this.turret = turret;
         this.drive = drive;
         addRequirements(shooter);
@@ -26,18 +29,27 @@ public class ShootFromDistanceToHubCommand extends Command {
     public void execute() {
         Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
 
-        double hubX, hubY;
+        double targetX, targetY;
         if (alliance == Alliance.Blue) {
-            hubX = Constants.blueHubX;
-            hubY = Constants.blueHubY;
+            if (currentYPos < 4) {
+                targetX = Constants.blueNearShuttleX;
+                targetY = Constants.blueNearShuttleY;
+            } else {
+                targetX = Constants.blueFarShuttleX;
+                targetY = Constants.blueFarShuttleY;
+            }
         } else {
-            hubX = Constants.redHubX;
-            hubY = Constants.redHubY;
+            if (currentYPos < 4) {
+                targetX = Constants.redNearShuttleX;
+                targetY = Constants.redNearShuttleY;
+            } else {
+                targetX = Constants.redFarShuttleX;
+                targetY = Constants.redFarShuttleY;
+            }
         }
-        Translation2d hubField = new Translation2d(hubX, hubY);
 
-        shooter.runShotFromDistanceToHub(hubField);
-        turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(-10));
+        turret.setTargetAngleRadians(drive.calcTurretAngle(new Translation2d(targetX, targetY)) + Math.toRadians(-10));
+        shooter.runShuttleShot(new Translation2d(targetX, targetY));
     }
 
     @Override

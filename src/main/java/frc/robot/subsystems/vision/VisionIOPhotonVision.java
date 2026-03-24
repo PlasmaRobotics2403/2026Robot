@@ -86,28 +86,26 @@ public class VisionIOPhotonVision implements VisionIO {
                         totalTagDistance / result.targets.size(),
                         PoseObservationType.PHOTONVISION));
 
-            } else if (!result.targets.isEmpty()) {
-                // var target = result.targets.get(0);
-                for (var target : result.targets) {
-                    var tagPose = aprilTagLayout.getTagPose(target.fiducialId);
-                    if (tagPose.isPresent()) {
-                        Transform3d fieldToTarget = new Transform3d(
-                                tagPose.get().getTranslation(), tagPose.get().getRotation());
-                        Transform3d cameraToTarget = target.bestCameraToTarget;
-                        Transform3d fieldToCamera = fieldToTarget.plus(cameraToTarget.inverse());
-                        Transform3d fieldToRobot = fieldToCamera.plus(robotToCamera.inverse());
-                        Pose3d robotPose = new Pose3d(fieldToRobot.getTranslation(), fieldToRobot.getRotation());
+            } else if (result.hasTargets()) {
+                var target = result.getBestTarget();
+                var tagPose = aprilTagLayout.getTagPose(target.fiducialId);
+                if (tagPose.isPresent()) {
+                    Transform3d fieldToTarget = new Transform3d(
+                            tagPose.get().getTranslation(), tagPose.get().getRotation());
+                    Transform3d cameraToTarget = target.bestCameraToTarget;
+                    Transform3d fieldToCamera = fieldToTarget.plus(cameraToTarget.inverse());
+                    Transform3d fieldToRobot = fieldToCamera.plus(robotToCamera.inverse());
+                    Pose3d robotPose = new Pose3d(fieldToRobot.getTranslation(), fieldToRobot.getRotation());
 
-                        tagIds.add((short) target.fiducialId);
+                    tagIds.add((short) target.fiducialId);
 
-                        poseObservations.add(new PoseObservation(
-                                result.getTimestampSeconds(),
-                                robotPose,
-                                target.poseAmbiguity,
-                                1,
-                                cameraToTarget.getTranslation().getNorm(),
-                                PoseObservationType.PHOTONVISION));
-                    }
+                    poseObservations.add(new PoseObservation(
+                            result.getTimestampSeconds(),
+                            robotPose,
+                            target.poseAmbiguity,
+                            1,
+                            cameraToTarget.getTranslation().getNorm(),
+                            PoseObservationType.PHOTONVISION));
                 }
                 Pose2d robotPose = drive.getPose();
                 Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
