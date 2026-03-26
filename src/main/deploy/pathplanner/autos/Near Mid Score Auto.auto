@@ -5,6 +5,18 @@
     "data": {
       "commands": [
         {
+          "type": "named",
+          "data": {
+            "name": "Shoot"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "Stop Shooter"
+          }
+        },
+        {
           "type": "path",
           "data": {
             "pathName": "NearMidAuto"
@@ -13,19 +25,13 @@
         {
           "type": "named",
           "data": {
-            "name": "Spin Up Shooter"
+            "name": "Shoot"
           }
         },
         {
           "type": "named",
           "data": {
-            "name": "Wait For Shooter"
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "Feed Shooter"
+            "name": "Stow Intake"
           }
         },
         {

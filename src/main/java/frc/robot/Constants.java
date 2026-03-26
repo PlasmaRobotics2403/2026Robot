@@ -16,6 +16,18 @@ public final class Constants {
     public static final double redHubX = 11.893; // meters
     public static final double redHubY = 4; // meters
 
+    public static final double blueFarShuttleX = 3.3; // meters
+    public static final double blueFarShuttleY = 7.2; // meters
+
+    public static final double blueNearShuttleX = 3.3; // meters
+    public static final double blueNearShuttleY = 2.7; // meters
+
+    public static final double redFarShuttleX = 13.4; // meters
+    public static final double redFarShuttleY = 5.2; // meters
+
+    public static final double redNearShuttleX = 13.4; // meters
+    public static final double redNearShuttleY = 4; // meters
+
     public static class RobotDevices {
         public static final class IntakeConstants {
             private IntakeConstants() {}
@@ -28,26 +40,26 @@ public final class Constants {
     public static final class IntakeConstants {
         public static final double DEPLOY_DEG = 102.0;
         public static final double STOW_DEG = 0.0;
-        public static final double ROLLER_PERCENT = 0.5;
+        public static final double ROLLER_PERCENT = 0.75;
     }
 
     public static final class TurretConstants {
         private TurretConstants() {}
 
-        public static final double kP = 4;
+        public static final double kP = 1.5;
         public static final double kI = 0.0;
         public static final double kD = 0.0;
         public static final double kS = 0.0;
         public static final double kV = 0.0;
         public static final double kA = 0.0;
         public static final double kCruiseVelocityRps = 200.0;
-        public static final double kAccelerationRpsPerSec = 400.0;
+        public static final double kAccelerationRpsPerSec = 300.0;
         public static final double kJerkRpsPerSec2 = 4000.0;
 
         public static final double MIN_ANGLE_DEG = -183.0;
         public static final double MAX_ANGLE_DEG = 183.0;
         public static final Translation2d TURRET_PIVOT_FROM_ROBOT_CENTER =
-                new Translation2d(Units.inchesToMeters(-6.25), Units.inchesToMeters(-6.25));
+                new Translation2d(Units.inchesToMeters(-6.25), Units.inchesToMeters(6.25)); // 6.25
 
         // Camera calibration reference supplied by the user at turret angle -90 degrees (facing robot rear).
         // We model the camera as rigidly attached to the turret with a fixed offset from the turret pivot.
@@ -106,7 +118,7 @@ public final class Constants {
         public static final double HOOD_POSITION_TOLERANCE_ROTATIONS = 0.01;
         public static final double HOOD_MOTOR_ROTATIONS_PER_HOOD_ROTATION = 1.0;
         public static final double HOOD_ZERO_ANGLE_DEGREES = 0.0;
-        public static final double HOOD_MAX_ROTATIONS = 1.7;
+        public static final double HOOD_MAX_ROTATIONS = 5;
         public static final String HOOD_TARGET_DASHBOARD_KEY = "Shooter/Hood/TargetRotations";
         public static final double HOOD_TARGET_DASHBOARD_DEFAULT_ROTATIONS = 0.0;
         public static final String HOOD_TARGET_DEGREES_DASHBOARD_KEY = "Shooter/Hood/TargetDeg";

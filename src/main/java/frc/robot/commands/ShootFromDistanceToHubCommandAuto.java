@@ -12,24 +12,27 @@ import frc.robot.subsystems.TestTurretSubsystem;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.shooter.Shooter;
 
-public class ShootAutoCommand extends Command {
+public class ShootFromDistanceToHubCommandAuto extends Command {
     private final Shooter shooter;
     private final IndexerSubsystem indexer;
     private final Drive drive;
     private final TestTurretSubsystem turret;
-    private Timer timer = new Timer();
+    private Timer timer;
 
-    public ShootAutoCommand(Shooter shooter, IndexerSubsystem indexer, Drive drive, TestTurretSubsystem turret) {
-        this.drive = drive;
+    public ShootFromDistanceToHubCommandAuto(
+            Shooter shooter, IndexerSubsystem indexer, Drive drive, TestTurretSubsystem turret) {
         this.shooter = shooter;
         this.indexer = indexer;
+        this.drive = drive;
         this.turret = turret;
-        addRequirements(shooter, indexer);
+
+        this.timer = new Timer();
+        addRequirements(shooter);
     }
 
     @Override
     public void initialize() {
-        timer.restart();
+        timer.reset();
         timer.start();
     }
 
@@ -46,26 +49,26 @@ public class ShootAutoCommand extends Command {
             hubY = Constants.redHubY;
         }
         Translation2d hubField = new Translation2d(hubX, hubY);
-
         turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(-10));
 
-        shooter.runShot(0.5, 55);
-        if (timer.hasElapsed(0.5)) {
-            indexer.setSpindexerDutyCycle(ShooterConstants.SPINDEXER_FEED_DUTY);
-            indexer.setShooterIndexerDutyCycle(ShooterConstants.SHOOTER_KICKER_FEED_DUTY);
+        shooter.runShotFromDistanceToHub(hubField);
+
+        if (timer.hasElapsed(1)) {
+            indexer.setShooterIndexerDutyCycle(0.5);
+            indexer.setSpindexerDutyCycle(0.5);
         }
     }
 
     @Override
     public void end(boolean interrupted) {
-        indexer.stopSpindexer();
-        indexer.stopShooterIndexer();
         shooter.stopFlywheel();
-        shooter.setHoodAngleDegrees(0);
+        shooter.setHoodAngleDegrees(ShooterConstants.HOOD_TARGET_DEGREES_DASHBOARD_DEFAULT);
+        indexer.setShooterIndexerDutyCycle(0);
+        indexer.setSpindexerDutyCycle(0);
     }
 
     @Override
     public boolean isFinished() {
-        return timer.hasElapsed(7);
+        return timer.hasElapsed(10);
     }
 }

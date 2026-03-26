@@ -66,7 +66,7 @@ public class IntakeSubsystem extends SubsystemBase {
     // Units: radians (mechanism/output, NOT motor rotations)
     private final PIDController pivotPid = new PIDController(3.0, 0.0, 0.0);
     private double pivotTargetRad = 0.0;
-    private double pivotPidP = 8.5;
+    private double pivotPidP = 12;
     private double pivotPidI = 0.0;
     private double pivotPidD = 0.0;
 

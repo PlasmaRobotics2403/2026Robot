@@ -2,14 +2,18 @@ package frc.robot;
 
 import static frc.robot.subsystems.vision.VisionConstants.camera0Name;
 import static frc.robot.subsystems.vision.VisionConstants.camera1Name;
+import static frc.robot.subsystems.vision.VisionConstants.camera2Name;
 import static frc.robot.subsystems.vision.VisionConstants.robotToCamera0;
 import static frc.robot.subsystems.vision.VisionConstants.robotToCamera1;
+import static frc.robot.subsystems.vision.VisionConstants.robotToCamera2;
 
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 import com.pathplanner.lib.commands.PathPlannerAuto;
+import com.pathplanner.lib.events.EventTrigger;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
@@ -26,9 +30,11 @@ import frc.robot.commands.RunIndexterDutyCycle;
 import frc.robot.commands.ShootAutoCommand;
 import frc.robot.commands.ShootCommand;
 import frc.robot.commands.ShootFromDistanceToHubCommand;
+import frc.robot.commands.ShootFromDistanceToHubCommandAuto;
+import frc.robot.commands.ShuttleShot;
 import frc.robot.commands.TestTurretToPosCommand;
-import frc.robot.commands.TestTurretToPosCommandStatic;
 import frc.robot.commands.TurretFollowCommand;
+import frc.robot.commands.ZeroTurretCommand;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.ClimbSubsystem;
 import frc.robot.subsystems.IndexerSubsystem;
@@ -61,6 +67,7 @@ import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 public class RobotContainer {
     private static final String FAR_MID_SCORE_AUTO_FILE = "Far Mid Score Auto";
     private static final String NEAR_MID_SCORE_AUTO_FILE = "Near Mid Score Auto";
+    private static final String DRIVE_FORWARD_AUTO_FILE = "Drive Forward Auto";
     private static final String SHOOT_ONLY_AUTO_NAME = "Shoot Only";
 
     private final Vision vision;
@@ -92,12 +99,12 @@ public class RobotContainer {
                         new ModuleIOTalonFX(TunerConstants.BackRight),
                         (robotPose) -> {});
                 cam0VisionIO = new VisionIOPhotonVision(camera0Name, robotToCamera0, drive);
-                vision = new Vision(drive, cam0VisionIO, new VisionIOPhotonVision(camera1Name, robotToCamera1, drive));
-                shooter = new Shooter(
-                        new ShooterIOTalonFX(),
-                        this::calculateDistanceToTargetMeters,
-                        this::calculateDistanceToHubMeters,
-                        drive);
+                vision = new Vision(
+                        drive,
+                        cam0VisionIO,
+                        new VisionIOPhotonVision(camera1Name, robotToCamera1, drive),
+                        new VisionIOPhotonVision(camera2Name, robotToCamera2, drive));
+                shooter = new Shooter(new ShooterIOTalonFX(), this::calculateDistanceToTargetMeters, drive);
                 break;
 
             case SIM:
@@ -119,11 +126,7 @@ public class RobotContainer {
                                 camera0Name, robotToCamera0, driveSimulation::getSimulatedDriveTrainPose, drive),
                         new VisionIOPhotonVisionSim(
                                 camera1Name, robotToCamera1, driveSimulation::getSimulatedDriveTrainPose, drive));
-                shooter = new Shooter(
-                        new ShooterIOSim(),
-                        this::calculateDistanceToTargetMeters,
-                        this::calculateDistanceToHubMeters,
-                        drive);
+                shooter = new Shooter(new ShooterIOSim(), this::calculateDistanceToTargetMeters, drive);
                 cam0VisionIO = new VisionIOPhotonVision(camera0Name, robotToCamera0, drive);
                 break;
 
@@ -136,11 +139,7 @@ public class RobotContainer {
                         new ModuleIO() {},
                         (robotPose) -> {});
                 vision = new Vision(drive, new VisionIO() {}, new VisionIO() {});
-                shooter = new Shooter(
-                        new ShooterIO() {},
-                        this::calculateDistanceToTargetMeters,
-                        this::calculateDistanceToHubMeters,
-                        drive);
+                shooter = new Shooter(new ShooterIO() {}, this::calculateDistanceToTargetMeters, drive);
                 cam0VisionIO = new VisionIOPhotonVision(camera0Name, robotToCamera0, drive);
                 break;
         }
@@ -152,6 +151,7 @@ public class RobotContainer {
         autoChooser.addOption("Far Mid Semantic Auto", buildAllianceCorrectFarMidAuto());
         autoChooser.addOption("Near Mid Semantic Auto", buildAllianceCorrectNearMidAuto());
         autoChooser.addOption("Shoot Only", buildShootOnlyAuto());
+        autoChooser.addOption("Drive", buildDriveForwardAuto());
 
         autoChooser.addOption("Drive Wheel Radius Characterization", DriveCommands.wheelRadiusCharacterization(drive));
         autoChooser.addOption("Drive Simple FF Characterization", DriveCommands.feedforwardCharacterization(drive));
@@ -163,28 +163,25 @@ public class RobotContainer {
         autoChooser.addOption("Drive SysId (Dynamic Reverse)", drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
 
         configureButtonBindings();
+        checkEventTriggers();
     }
 
     private void registerNamedCommands() {
-        NamedCommands.registerCommand(
-                "Deploy Intake",
-                Commands.startEnd(
-                                () -> {
-                                    intake.setPivotTargetDegrees(Constants.IntakeConstants.DEPLOY_DEG);
-                                    intake.runRollersIn(Constants.IntakeConstants.ROLLER_PERCENT);
-                                },
-                                () -> {
-                                    intake.setPivotTargetDegrees(Constants.IntakeConstants.DEPLOY_DEG);
-                                    intake.stopRoller();
-                                },
-                                intake)
-                        .withName("Deploy Intake"));
+        // NamedCommands.registerCommand(
+        //         "Deploy Intake",
+        //         Commands.run(
+        //                         () -> {
+        //                             intake.setPivotTargetDegrees(Constants.IntakeConstants.DEPLOY_DEG);
+        //                             intake.runRollersIn(Constants.IntakeConstants.ROLLER_PERCENT);
+        //                         },
+        //                         intake)
+        //                 .withName("Deploy Intake"));
 
         NamedCommands.registerCommand(
                 "Stop Rollers",
                 Commands.runOnce(
                                 () -> {
-                                    intake.setPivotTargetDegrees(Constants.IntakeConstants.DEPLOY_DEG);
+                                    intake.setPivotTargetDegrees(Constants.IntakeConstants.STOW_DEG);
                                     intake.stopRoller();
                                 },
                                 intake)
@@ -192,12 +189,7 @@ public class RobotContainer {
 
         NamedCommands.registerCommand(
                 "Shoot",
-                Commands.deadline(
-                                Commands.waitSeconds(1.5),
-                                new RunIndexterDutyCycle(
-                                        indexer,
-                                        Constants.ShooterConstants.SPINDEXER_FEED_DUTY,
-                                        Constants.ShooterConstants.SHOOTER_KICKER_FEED_DUTY))
+                Commands.deadline(new ShootFromDistanceToHubCommandAuto(shooter, indexer, drive, testTurret))
                         .withName("Shoot"));
 
         NamedCommands.registerCommand(
@@ -205,7 +197,7 @@ public class RobotContainer {
                 Commands.runOnce(
                                 () -> {
                                     shooter.stopFlywheel();
-                                    intake.stopRoller();
+                                    // intake.stopRoller();
                                     indexer.stopSpindexer();
                                     indexer.stopShooterIndexer();
                                 },
@@ -221,7 +213,12 @@ public class RobotContainer {
                             Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
                             String autoFile =
                                     alliance == Alliance.Red ? NEAR_MID_SCORE_AUTO_FILE : FAR_MID_SCORE_AUTO_FILE;
-                            return new PathPlannerAuto(autoFile);
+
+                            PathPlannerAuto auto = new PathPlannerAuto(autoFile);
+                            drive.resetOdometry(auto.getStartingPose());
+                            Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
+
+                            return auto;
                         },
                         java.util.Set.of(drive, intake, shooter, indexer))
                 .withName("Far Mid Semantic Auto");
@@ -233,10 +230,22 @@ public class RobotContainer {
                             Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
                             String autoFile =
                                     alliance == Alliance.Red ? FAR_MID_SCORE_AUTO_FILE : NEAR_MID_SCORE_AUTO_FILE;
-                            return new PathPlannerAuto(autoFile);
+
+                            PathPlannerAuto auto = new PathPlannerAuto(autoFile);
+                            drive.resetOdometry(auto.getStartingPose());
+                            Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
+
+                            return auto;
                         },
                         java.util.Set.of(drive, intake, shooter, indexer))
                 .withName("Near Mid Semantic Auto");
+    }
+
+    private Command buildDriveForwardAuto() {
+        PathPlannerAuto auto = new PathPlannerAuto(DRIVE_FORWARD_AUTO_FILE);
+        drive.resetOdometry(auto.getStartingPose());
+        Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
+        return auto;
     }
 
     private Command buildShootOnlyAuto() {
@@ -244,14 +253,14 @@ public class RobotContainer {
         commandGroup.addCommands(
                 Commands.runOnce(
                         () -> drive.resetOdometry(new Pose2d(drive.getPose().getTranslation(), new Rotation2d()))),
-                new ShootAutoCommand(shooter, indexer));
+                new ShootAutoCommand(shooter, indexer, drive, testTurret));
         return commandGroup;
     }
 
     private void configureButtonBindings() {
         drive.setDefaultCommand(DriveCommands.joystickDrive(
                 drive, () -> -controller.getLeftY(), () -> -controller.getLeftX(), () -> -controller.getRightX()));
-        testTurret.setDefaultCommand(new TurretFollowCommand(vision, testTurret, drive, 0));
+        // testTurret.setDefaultCommand(new TurretFollowOdometryCommand(vision, testTurret, drive, 0));
 
         controller.b().whileTrue(new TurretFollowCommand(vision, testTurret, drive, 0));
         navigator.povUp().onTrue(new TestTurretToPosCommand(testTurret, -90));
@@ -294,13 +303,20 @@ public class RobotContainer {
         //                         Constants.ShooterConstants.TUNING_DISTANCE_METERS_DASHBOARD_KEY,
         //                         Constants.ShooterConstants.TUNING_DISTANCE_METERS_DASHBOARD_DEFAULT)));
         controller.x().whileTrue(new ShootCommand(shooter));
+        controller
+                .b()
+                .whileTrue(new ShuttleShot(
+                        shooter, () -> drive.getPose().getTranslation().getY(), testTurret, drive));
 
-        controller.leftBumper().whileTrue(new ShootFromDistanceToHubCommand(shooter));
-        controller.leftBumper().whileTrue(new ShootFromDistanceToHubCommand(shooter));
+        // ParallelCommandGroup shootGroup = new ParallelCommandGroup(
+        //         new ShootFromDistanceToHubCommand(shooter),
+        //         new TurretFollowOdometryCommand(vision, testTurret, drive, 0));
+        controller.leftBumper().whileTrue(new ShootFromDistanceToHubCommand(shooter, testTurret, drive));
         controller
                 .y()
                 .whileTrue(Commands.startEnd(
                         () -> indexer.setSpindexerDutyCycle(-0.5), () -> indexer.stopSpindexer(), indexer));
+        controller.povUp().whileTrue(new ZeroTurretCommand(testTurret));
         controller
                 .rightBumper()
                 .and(controller.leftBumper())
@@ -310,12 +326,52 @@ public class RobotContainer {
                         Constants.ShooterConstants.SHOOTER_KICKER_FEED_DUTY));
         controller
                 .rightBumper()
+                .and(controller.b())
+                .whileTrue(new RunIndexterDutyCycle(
+                        indexer,
+                        Constants.ShooterConstants.SPINDEXER_FEED_DUTY,
+                        Constants.ShooterConstants.SHOOTER_KICKER_FEED_DUTY));
+        // controller
+        //         .rightBumper()
+        //         .and(controller.x())
+        //         .whileTrue(new TestTurretToPosCommandStatic(testTurret)
+        //                 .andThen(new RunIndexterDutyCycle(
+        //                         indexer,
+        //                         Constants.ShooterConstants.SPINDEXER_FEED_DUTY,
+        //                         Constants.ShooterConstants.SHOOTER_KICKER_FEED_DUTY)));
+        controller
+                .rightBumper()
                 .and(controller.x())
-                .whileTrue(new TestTurretToPosCommandStatic(testTurret)
-                        .andThen(new RunIndexterDutyCycle(
-                                indexer,
-                                Constants.ShooterConstants.SPINDEXER_FEED_DUTY,
-                                Constants.ShooterConstants.SHOOTER_KICKER_FEED_DUTY)));
+                .whileTrue(new RunIndexterDutyCycle(
+                        indexer,
+                        Constants.ShooterConstants.SPINDEXER_FEED_DUTY,
+                        Constants.ShooterConstants.SHOOTER_KICKER_FEED_DUTY));
+    }
+
+    private void checkEventTriggers() {
+        new EventTrigger("Deploy Intake").whileTrue(new IntakeOutCommand(intake));
+        new EventTrigger("Stow Intake").whileTrue(new IntakeStowCommand(intake));
+
+        new EventTrigger("Shoot").whileTrue(new ShootFromDistanceToHubCommandAuto(shooter, indexer, drive, testTurret));
+        // new EventTrigger("Stop Shooter")
+        //         .whileTrue(Commands.runOnce(
+        //                 () -> {
+        //                     shooter.stopFlywheel();
+        //                     // intake.stopRoller();
+        //                     indexer.stopSpindexer();
+        //                     indexer.stopShooterIndexer();
+        //                 },
+        //                 shooter,
+        //                 intake,
+        //                 indexer));
+
+        // new EventTrigger("Stop Rollers")
+        //         .whileTrue(Commands.runOnce(
+        //                 () -> {
+        //                     intake.setPivotTargetDegrees(Constants.IntakeConstants.STOW_DEG);
+        //                     intake.stopRoller();
+        //                 },
+        //                 intake));
     }
 
     public Command getAutonomousCommand() {
@@ -384,8 +440,6 @@ public class RobotContainer {
     }
 
     public double calculateDistanceToHubMeters() {
-        Pose2d robotPose = drive.getPose();
-
         Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
 
         double hubX, hubY;
@@ -397,6 +451,10 @@ public class RobotContainer {
             hubY = Constants.redHubY;
         }
 
-        return Math.hypot(hubX - robotPose.getX(), hubY - robotPose.getY());
+        return drive.distanceToTargetMeters(new Translation2d(hubX, hubY));
+    }
+
+    public double getRobotY() {
+        return drive.getPose().getTranslation().getY();
     }
 }

@@ -1,6 +1,7 @@
 package frc.robot.subsystems.shooter;
 
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -23,6 +24,7 @@ public class Shooter extends SubsystemBase {
     private final ShooterIO io;
     private final ShooterIOInputsAutoLogged inputs = new ShooterIOInputsAutoLogged();
 
+    private double rpsOffset = 1;
     private ControlMode controlMode = ControlMode.IDLE;
     private double flywheelSetpointRps = 0.0;
     private double hoodSetpointRotations = 0.0;
@@ -35,7 +37,6 @@ public class Shooter extends SubsystemBase {
     private double hoodPidD = ShooterConstants.HOOD_KD;
     private boolean dashboardTargetsResetAfterBoot = false;
     private final DoubleSupplier tuningDistanceSupplier;
-    private final DoubleSupplier hubDistanceSupplier;
 
     private Drive drive;
 
@@ -52,10 +53,10 @@ public class Shooter extends SubsystemBase {
     //     this.drive = drive;
     // }
 
-    public Shooter(
-            ShooterIO io, DoubleSupplier tuningDistanceSupplier, DoubleSupplier hubDistanceSupplier, Drive drive) {
-        this(io, tuningDistanceSupplier, hubDistanceSupplier, true);
+    public Shooter(ShooterIO io, DoubleSupplier tuningDistanceSupplier, Drive drive) {
+        this(io, tuningDistanceSupplier, true);
         this.drive = drive;
+        SmartDashboard.putNumber("Shooter/rpsOffset", rpsOffset);
     }
 
     // Shooter(ShooterIO io, boolean initializeDashboard) {
@@ -70,14 +71,9 @@ public class Shooter extends SubsystemBase {
     //             initializeDashboard);
     // }
 
-    Shooter(
-            ShooterIO io,
-            DoubleSupplier tuningDistanceSupplier,
-            DoubleSupplier hubDistanceSupplier,
-            boolean initializeDashboard) {
+    Shooter(ShooterIO io, DoubleSupplier tuningDistanceSupplier, boolean initializeDashboard) {
         this.io = io;
         this.tuningDistanceSupplier = tuningDistanceSupplier;
-        this.hubDistanceSupplier = hubDistanceSupplier;
         this.hoodSetpointRotations = hoodDegreesToMotorRotations(ShooterConstants.HOOD_ZERO_ANGLE_DEGREES);
 
         io.setHoodPositionRotations(hoodSetpointRotations);
@@ -93,11 +89,7 @@ public class Shooter extends SubsystemBase {
         SmartDashboard.putNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "kP", hoodPidP);
         SmartDashboard.putNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "kI", hoodPidI);
         SmartDashboard.putNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "kD", hoodPidD);
-        SmartDashboard.putNumber(
-                ShooterConstants.HOOD_TARGET_DASHBOARD_KEY, ShooterConstants.HOOD_TARGET_DASHBOARD_DEFAULT_ROTATIONS);
-        SmartDashboard.putNumber(
-                ShooterConstants.HOOD_TARGET_DEGREES_DASHBOARD_KEY,
-                ShooterConstants.HOOD_TARGET_DEGREES_DASHBOARD_DEFAULT);
+        SmartDashboard.putNumber("Shooter/rpsOffset", rpsOffset);
         SmartDashboard.putNumber(
                 ShooterConstants.FLYWHEEL_TARGET_RPS_DASHBOARD_KEY,
                 ShooterConstants.FLYWHEEL_TARGET_RPS_DASHBOARD_DEFAULT);
@@ -125,6 +117,7 @@ public class Shooter extends SubsystemBase {
 
     @Override
     public void periodic() {
+        SmartDashboard.putNumber("Shooter/rpsOffset", rpsOffset);
         forceDashboardTargetsResetAfterBoot();
         io.updateInputs(inputs);
         Logger.processInputs("Shooter", inputs);
@@ -156,6 +149,8 @@ public class Shooter extends SubsystemBase {
         SmartDashboard.putNumber(ShooterConstants.FLYWHEEL_PID_DASHBOARD_PREFIX + "Active kI", flywheelPidI);
         SmartDashboard.putNumber(ShooterConstants.FLYWHEEL_PID_DASHBOARD_PREFIX + "Active kD", flywheelPidD);
         SmartDashboard.putNumber(ShooterConstants.FLYWHEEL_PID_DASHBOARD_PREFIX + "Active kV", flywheelPidV);
+
+        rpsOffset = SmartDashboard.getNumber("Shooter/rpsOffset", rpsOffset);
         SmartDashboard.putNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "Active kP", hoodPidP);
         SmartDashboard.putNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "Active kI", hoodPidI);
         SmartDashboard.putNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "Active kD", hoodPidD);
@@ -163,10 +158,8 @@ public class Shooter extends SubsystemBase {
         SmartDashboard.putNumber("Shooter/Flywheel/ActiveTargetRps", flywheelSetpointRps);
         SmartDashboard.putNumber("Shooter/Hood/CurrentRotations", inputs.hoodPositionRotations);
         SmartDashboard.putNumber("Shooter/Hood/CurrentDeg", getHoodAngleDegrees());
-        SmartDashboard.putNumber("Turret/TagDistance", tuningDistanceSupplier.getAsDouble());
+        // SmartDashboard.putNumber("Turret/TagDistance", tuningDistanceSupplier.getAsDouble());
         SmartDashboard.putNumber("", 0);
-        SmartDashboard.putNumber(
-                ShooterConstants.HOOD_TARGET_DEGREES_DASHBOARD_KEY, motorRotationsToHoodDegrees(hoodSetpointRotations));
         updateTuningDashboard();
     }
 
@@ -177,9 +170,6 @@ public class Shooter extends SubsystemBase {
         }
         SmartDashboard.putNumber(
                 ShooterConstants.HOOD_TARGET_DASHBOARD_KEY, ShooterConstants.HOOD_TARGET_DASHBOARD_DEFAULT_ROTATIONS);
-        SmartDashboard.putNumber(
-                ShooterConstants.HOOD_TARGET_DEGREES_DASHBOARD_KEY,
-                ShooterConstants.HOOD_TARGET_DEGREES_DASHBOARD_DEFAULT);
         SmartDashboard.putNumber(
                 ShooterConstants.FLYWHEEL_TARGET_RPS_DASHBOARD_KEY,
                 ShooterConstants.FLYWHEEL_TARGET_RPS_DASHBOARD_DEFAULT);
@@ -301,8 +291,13 @@ public class Shooter extends SubsystemBase {
         runShot(evaluateHoodDegrees(), evaluateFlywheelRps(tuningDistanceSupplier.getAsDouble()));
     }
 
-    public void runShotFromDistanceToHub() {
-        runShot(evaluateHoodDegreesHub(), evaluateFlywheelRpsHub());
+    public void runShotFromDistanceToHub(Translation2d target) {
+        runShot(evaluateHoodDegreesHub(target), evaluateFlywheelRpsHub(target));
+    }
+
+    public void runShuttleShot(Translation2d target) {
+        setHoodAngleDegrees(1000);
+        runFlywheelVelocity(evaluateFlywheelRpsHub(target));
     }
 
     public void stopFlywheel() {
@@ -381,19 +376,18 @@ public class Shooter extends SubsystemBase {
     // return ShooterConstants.FLYWHEEL_DISTANCE_SLOPE_RPS_PER_METER * distanceMeters
     //         + ShooterConstants.FLYWHEEL_DISTANCE_INTERCEPT_RPS;
 
-    public double evaluateFlywheelRpsHub() {
-        double distance = hubDistanceSupplier.getAsDouble();
-        return 45.61898 * Math.pow(distance, 0.226958); // add logic for evaluating flywheel RPM based on hub distance
+    public double evaluateFlywheelRpsHub(Translation2d target) {
+        double distance = drive.distanceToTargetMeters(target);
+        if (distance <= 2.5) {
+            return 49;
+        }
+
+        return 0.0441314 * Math.pow(distance, 2) + 3.44913 * distance + 40.60355 + rpsOffset;
     }
 
-    public double evaluateHoodDegreesHub() {
-        double distance = hubDistanceSupplier.getAsDouble();
-        return (0.991255)
-                / (1
-                        + Math.pow(
-                                Math.E,
-                                -(5.30038 * distance
-                                        - 20.33586))); // add logic for evaluating hood angle based on hub distance
+    public double evaluateHoodDegreesHub(Translation2d target) {
+        double distance = drive.distanceToTargetMeters(target);
+        return 217.3913 * distance - 326.08696;
     }
 
     private static String formatSampleRow(double distanceMeters, double hoodTargetDeg, double flywheelTargetRps) {

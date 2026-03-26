@@ -7,8 +7,6 @@ import static frc.robot.subsystems.vision.VisionConstants.cameraLocalizationEnab
 import static frc.robot.subsystems.vision.VisionConstants.cameraStdDevFactors;
 import static frc.robot.subsystems.vision.VisionConstants.linearStdDevBaseline;
 import static frc.robot.subsystems.vision.VisionConstants.linearStdDevMegatag2Factor;
-import static frc.robot.subsystems.vision.VisionConstants.maxAmbiguity;
-import static frc.robot.subsystems.vision.VisionConstants.maxZError;
 
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.VecBuilder;
@@ -19,6 +17,7 @@ import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
@@ -182,13 +181,7 @@ public class Vision extends SubsystemBase {
             }
 
             for (var observation : inputs[cameraIndex].poseObservations) {
-                boolean rejectPose = observation.tagCount() == 0
-                        || (observation.tagCount() == 1 && observation.ambiguity() > maxAmbiguity)
-                        || Math.abs(observation.pose().getZ()) > maxZError
-                        || observation.pose().getX() < 0.0
-                        || observation.pose().getX() > aprilTagLayout.getFieldLength()
-                        || observation.pose().getY() < 0.0
-                        || observation.pose().getY() > aprilTagLayout.getFieldWidth();
+                boolean rejectPose = false;
 
                 robotPoses.add(observation.pose());
                 if (rejectPose) {
@@ -214,10 +207,12 @@ public class Vision extends SubsystemBase {
                 }
 
                 if (localizationEnabled) {
-                    consumer.accept(
-                            observation.pose().toPose2d(),
-                            observation.timestamp(),
-                            VecBuilder.fill(linearStdDev, linearStdDev, angularStdDev));
+                    if (DriverStation.isTeleop()) {
+                        consumer.accept(
+                                observation.pose().toPose2d(),
+                                observation.timestamp(),
+                                VecBuilder.fill(linearStdDev, linearStdDev, angularStdDev));
+                    }
                 }
             }
 

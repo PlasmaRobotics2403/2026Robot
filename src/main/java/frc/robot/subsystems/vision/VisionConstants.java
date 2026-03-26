@@ -11,14 +11,20 @@ public class VisionConstants {
 
     public static String camera0Name = "PlasmaCam1";
     public static String camera1Name = "PlasmaCam2";
+    public static String camera2Name = "PlasmaCam3";
 
     public static Transform3d robotToCamera0 = new Transform3d(
             -0.2953512, -0.21550884, 0.49809146, new Rotation3d(0.0, Math.toRadians(70), Math.toRadians(180)));
     public static Transform3d robotToCamera1 = new Transform3d(
-            Units.inchesToMeters(7.125),
-            Units.inchesToMeters(-12),
-            Units.inchesToMeters(14.2),
+            Units.inchesToMeters(-33), // -12
+            Units.inchesToMeters(7), // -7.125
+            Units.inchesToMeters(14.5),
             new Rotation3d(Math.PI, Math.toRadians(70.0), Math.PI));
+    public static Transform3d robotToCamera2 = new Transform3d(
+            Units.inchesToMeters(-10.12), // -12
+            Units.inchesToMeters(29), // -7.125
+            Units.inchesToMeters(14.5),
+            new Rotation3d(Math.PI, Math.toRadians(70.0), Math.PI / 2));
 
     // camera0 = turret alignment only, camera1 = rear localization
     public static boolean[] cameraLocalizationEnabled = new boolean[] {false, true};

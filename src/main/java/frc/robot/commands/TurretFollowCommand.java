@@ -103,11 +103,11 @@ public class TurretFollowCommand extends Command {
         double min = Math.toRadians(TurretConstants.MIN_ANGLE_DEG);
         double max = Math.toRadians(TurretConstants.MAX_ANGLE_DEG);
 
-        while (targetAngle < min) {
+        while (targetAngle < min - Math.toRadians(3)) {
             targetAngle += 2 * Math.PI;
         }
 
-        while (targetAngle > max) {
+        while (targetAngle > max + Math.toRadians(3)) {
             targetAngle -= 2 * Math.PI;
         }
 
