@@ -24,6 +24,7 @@ public class Shooter extends SubsystemBase {
     private final ShooterIO io;
     private final ShooterIOInputsAutoLogged inputs = new ShooterIOInputsAutoLogged();
 
+    private double rpsOffset = 1;
     private ControlMode controlMode = ControlMode.IDLE;
     private double flywheelSetpointRps = 0.0;
     private double hoodSetpointRotations = 0.0;
@@ -55,6 +56,7 @@ public class Shooter extends SubsystemBase {
     public Shooter(ShooterIO io, DoubleSupplier tuningDistanceSupplier, Drive drive) {
         this(io, tuningDistanceSupplier, true);
         this.drive = drive;
+        SmartDashboard.putNumber("Shooter/rpsOffset", rpsOffset);
     }
 
     // Shooter(ShooterIO io, boolean initializeDashboard) {
@@ -87,6 +89,7 @@ public class Shooter extends SubsystemBase {
         SmartDashboard.putNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "kP", hoodPidP);
         SmartDashboard.putNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "kI", hoodPidI);
         SmartDashboard.putNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "kD", hoodPidD);
+        SmartDashboard.putNumber("Shooter/rpsOffset", rpsOffset);
         SmartDashboard.putNumber(
                 ShooterConstants.FLYWHEEL_TARGET_RPS_DASHBOARD_KEY,
                 ShooterConstants.FLYWHEEL_TARGET_RPS_DASHBOARD_DEFAULT);
@@ -114,6 +117,7 @@ public class Shooter extends SubsystemBase {
 
     @Override
     public void periodic() {
+        SmartDashboard.putNumber("Shooter/rpsOffset", rpsOffset);
         forceDashboardTargetsResetAfterBoot();
         io.updateInputs(inputs);
         Logger.processInputs("Shooter", inputs);
@@ -145,6 +149,8 @@ public class Shooter extends SubsystemBase {
         SmartDashboard.putNumber(ShooterConstants.FLYWHEEL_PID_DASHBOARD_PREFIX + "Active kI", flywheelPidI);
         SmartDashboard.putNumber(ShooterConstants.FLYWHEEL_PID_DASHBOARD_PREFIX + "Active kD", flywheelPidD);
         SmartDashboard.putNumber(ShooterConstants.FLYWHEEL_PID_DASHBOARD_PREFIX + "Active kV", flywheelPidV);
+
+        rpsOffset = SmartDashboard.getNumber("Shooter/rpsOffset", rpsOffset);
         SmartDashboard.putNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "Active kP", hoodPidP);
         SmartDashboard.putNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "Active kI", hoodPidI);
         SmartDashboard.putNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "Active kD", hoodPidD);
@@ -376,7 +382,7 @@ public class Shooter extends SubsystemBase {
             return 49;
         }
 
-        return 0.0441314 * Math.pow(distance, 2) + 3.44913 * distance + 41.60355;
+        return 0.0441314 * Math.pow(distance, 2) + 3.44913 * distance + 40.60355 + rpsOffset;
     }
 
     public double evaluateHoodDegreesHub(Translation2d target) {

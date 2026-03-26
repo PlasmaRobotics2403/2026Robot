@@ -10,6 +10,7 @@ import static frc.robot.subsystems.vision.VisionConstants.robotToCamera2;
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 import com.pathplanner.lib.commands.PathPlannerAuto;
+import com.pathplanner.lib.events.EventTrigger;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
@@ -33,6 +34,7 @@ import frc.robot.commands.ShootFromDistanceToHubCommandAuto;
 import frc.robot.commands.ShuttleShot;
 import frc.robot.commands.TestTurretToPosCommand;
 import frc.robot.commands.TurretFollowCommand;
+import frc.robot.commands.ZeroTurretCommand;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.ClimbSubsystem;
 import frc.robot.subsystems.IndexerSubsystem;
@@ -161,18 +163,19 @@ public class RobotContainer {
         autoChooser.addOption("Drive SysId (Dynamic Reverse)", drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
 
         configureButtonBindings();
+        checkEventTriggers();
     }
 
     private void registerNamedCommands() {
-        NamedCommands.registerCommand(
-                "Deploy Intake",
-                Commands.run(
-                                () -> {
-                                    intake.setPivotTargetDegrees(Constants.IntakeConstants.DEPLOY_DEG);
-                                    intake.runRollersIn(Constants.IntakeConstants.ROLLER_PERCENT);
-                                },
-                                intake)
-                        .withName("Deploy Intake"));
+        // NamedCommands.registerCommand(
+        //         "Deploy Intake",
+        //         Commands.run(
+        //                         () -> {
+        //                             intake.setPivotTargetDegrees(Constants.IntakeConstants.DEPLOY_DEG);
+        //                             intake.runRollersIn(Constants.IntakeConstants.ROLLER_PERCENT);
+        //                         },
+        //                         intake)
+        //                 .withName("Deploy Intake"));
 
         NamedCommands.registerCommand(
                 "Stop Rollers",
@@ -210,14 +213,15 @@ public class RobotContainer {
                             Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
                             String autoFile =
                                     alliance == Alliance.Red ? NEAR_MID_SCORE_AUTO_FILE : FAR_MID_SCORE_AUTO_FILE;
-                            return new PathPlannerAuto(autoFile);
+
+                            PathPlannerAuto auto = new PathPlannerAuto(autoFile);
+                            drive.resetOdometry(auto.getStartingPose());
+                            Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
+
+                            return auto;
                         },
                         java.util.Set.of(drive, intake, shooter, indexer))
                 .withName("Far Mid Semantic Auto");
-    }
-
-    private Command buildDriveForwardAuto() {
-        return new PathPlannerAuto(DRIVE_FORWARD_AUTO_FILE);
     }
 
     private Command buildAllianceCorrectNearMidAuto() {
@@ -226,10 +230,22 @@ public class RobotContainer {
                             Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
                             String autoFile =
                                     alliance == Alliance.Red ? FAR_MID_SCORE_AUTO_FILE : NEAR_MID_SCORE_AUTO_FILE;
-                            return new PathPlannerAuto(autoFile);
+
+                            PathPlannerAuto auto = new PathPlannerAuto(autoFile);
+                            drive.resetOdometry(auto.getStartingPose());
+                            Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
+
+                            return auto;
                         },
                         java.util.Set.of(drive, intake, shooter, indexer))
                 .withName("Near Mid Semantic Auto");
+    }
+
+    private Command buildDriveForwardAuto() {
+        PathPlannerAuto auto = new PathPlannerAuto(DRIVE_FORWARD_AUTO_FILE);
+        drive.resetOdometry(auto.getStartingPose());
+        Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
+        return auto;
     }
 
     private Command buildShootOnlyAuto() {
@@ -300,6 +316,7 @@ public class RobotContainer {
                 .y()
                 .whileTrue(Commands.startEnd(
                         () -> indexer.setSpindexerDutyCycle(-0.5), () -> indexer.stopSpindexer(), indexer));
+        controller.povUp().whileTrue(new ZeroTurretCommand(testTurret));
         controller
                 .rightBumper()
                 .and(controller.leftBumper())
@@ -329,6 +346,32 @@ public class RobotContainer {
                         indexer,
                         Constants.ShooterConstants.SPINDEXER_FEED_DUTY,
                         Constants.ShooterConstants.SHOOTER_KICKER_FEED_DUTY));
+    }
+
+    private void checkEventTriggers() {
+        new EventTrigger("Deploy Intake").whileTrue(new IntakeOutCommand(intake));
+        new EventTrigger("Stow Intake").whileTrue(new IntakeStowCommand(intake));
+
+        new EventTrigger("Shoot").whileTrue(new ShootFromDistanceToHubCommandAuto(shooter, indexer, drive, testTurret));
+        // new EventTrigger("Stop Shooter")
+        //         .whileTrue(Commands.runOnce(
+        //                 () -> {
+        //                     shooter.stopFlywheel();
+        //                     // intake.stopRoller();
+        //                     indexer.stopSpindexer();
+        //                     indexer.stopShooterIndexer();
+        //                 },
+        //                 shooter,
+        //                 intake,
+        //                 indexer));
+
+        // new EventTrigger("Stop Rollers")
+        //         .whileTrue(Commands.runOnce(
+        //                 () -> {
+        //                     intake.setPivotTargetDegrees(Constants.IntakeConstants.STOW_DEG);
+        //                     intake.stopRoller();
+        //                 },
+        //                 intake));
     }
 
     public Command getAutonomousCommand() {

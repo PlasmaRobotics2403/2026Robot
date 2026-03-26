@@ -4,6 +4,7 @@ import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
+import com.ctre.phoenix6.controls.DutyCycleOut;
 import com.ctre.phoenix6.controls.PositionVoltage;
 import com.ctre.phoenix6.controls.VoltageOut;
 import com.ctre.phoenix6.hardware.TalonFX;
@@ -14,6 +15,7 @@ import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.units.measure.Current;
 import edu.wpi.first.units.measure.Voltage;
+import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
@@ -24,6 +26,7 @@ import org.littletonrobotics.junction.Logger;
 
 public class TestTurretSubsystem extends SubsystemBase {
     public static final int TALON_ID = 20;
+    public DigitalInput limitSwitch;
 
     public static final String CAN_BUS = "rio";
     public static final double GEAR_RATIO = 24;
@@ -52,10 +55,13 @@ public class TestTurretSubsystem extends SubsystemBase {
 
     private final VoltageOut voltageRequest = new VoltageOut(0.0);
     private final PositionVoltage positionRequest = new PositionVoltage(0.0);
+    private final DutyCycleOut dutyCycleRequest = new DutyCycleOut(0.0);
     private double lastCommandedRotorRotations = 0.0;
 
     public TestTurretSubsystem() {
         motor.setPosition(0);
+        limitSwitch = new DigitalInput(0);
+
         config.MotorOutput.NeutralMode = NeutralModeValue.Brake;
         config.CurrentLimits.SupplyCurrentLimit = 40.0;
         config.CurrentLimits.SupplyCurrentLimitEnable = true;
@@ -142,6 +148,8 @@ public class TestTurretSubsystem extends SubsystemBase {
             SmartDashboard.putNumber("Turret/TargetAngleDeg", Units.radiansToDegrees(targetAngleRad));
             SmartDashboard.putBoolean("Turret/ClosedLoopEnabled", controlEnabled);
         }
+
+        SmartDashboard.putBoolean("Turret/GetLimitSwitch", getLimitSwitch());
     }
 
     public void setTargetAngle(Rotation2d angle) {
@@ -157,6 +165,10 @@ public class TestTurretSubsystem extends SubsystemBase {
         double rotorRotations = Units.radiansToRotations(targetAngleRad) * GEAR_RATIO;
         lastCommandedRotorRotations = rotorRotations;
         motor.setControl(positionRequest.withPosition(rotorRotations));
+    }
+
+    public boolean getLimitSwitch() {
+        return limitSwitch.get();
     }
 
     /** Returns the turret target angle in radians (post-gearbox). */
@@ -175,6 +187,11 @@ public class TestTurretSubsystem extends SubsystemBase {
 
     public void setVoltage(double volts) {
         motor.setControl(voltageRequest.withOutput(volts));
+    }
+
+    public void setDutyCycle(double dutyCycle) {
+        controlEnabled = false;
+        motor.setControl(dutyCycleRequest.withOutput(dutyCycle));
     }
 
     public void stop() {

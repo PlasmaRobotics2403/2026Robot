@@ -63,10 +63,12 @@ public class ShootFromDistanceToHubCommandAuto extends Command {
     public void end(boolean interrupted) {
         shooter.stopFlywheel();
         shooter.setHoodAngleDegrees(ShooterConstants.HOOD_TARGET_DEGREES_DASHBOARD_DEFAULT);
+        indexer.setShooterIndexerDutyCycle(0);
+        indexer.setSpindexerDutyCycle(0);
     }
 
     @Override
     public boolean isFinished() {
-        return timer.hasElapsed(5);
+        return timer.hasElapsed(10);
     }
 }
