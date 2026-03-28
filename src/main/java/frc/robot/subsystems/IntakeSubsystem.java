@@ -4,9 +4,11 @@ import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
+import com.ctre.phoenix6.controls.Follower;
 import com.ctre.phoenix6.controls.VoltageOut;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
+import com.ctre.phoenix6.signals.MotorAlignmentValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.PIDController;
@@ -39,10 +41,14 @@ public class IntakeSubsystem extends SubsystemBase {
     private final TalonFX rollerMotor = new TalonFX(
             RobotDevices.IntakeConstants.INTAKE_ROLLER.getDeviceNumber(),
             new CANBus(RobotDevices.IntakeConstants.INTAKE_ROLLER.getBus()));
+    private final TalonFX rollerMotor2 = new TalonFX(
+            RobotDevices.IntakeConstants.INTAKE_ROLLER2.getDeviceNumber(),
+            new CANBus(RobotDevices.IntakeConstants.INTAKE_ROLLER2.getBus()));
 
     private final int[] powerPorts = new int[] {
         RobotDevices.IntakeConstants.INTAKE_PIVOT.getPowerPort(),
-        RobotDevices.IntakeConstants.INTAKE_ROLLER.getPowerPort()
+        RobotDevices.IntakeConstants.INTAKE_ROLLER.getPowerPort(),
+        RobotDevices.IntakeConstants.INTAKE_ROLLER2.getPowerPort()
     };
 
     private final TalonFXConfiguration pivotConfig = new TalonFXConfiguration();
@@ -81,6 +87,9 @@ public class IntakeSubsystem extends SubsystemBase {
         rollerConfig.CurrentLimits.SupplyCurrentLimit = 40.0;
         rollerConfig.CurrentLimits.SupplyCurrentLimitEnable = true;
         rollerMotor.getConfigurator().apply(rollerConfig);
+        rollerMotor2.getConfigurator().apply(rollerConfig);
+
+        rollerMotor2.setControl(new Follower(rollerMotor.getDeviceID(), MotorAlignmentValue.Aligned));
 
         BaseStatusSignal.setUpdateFrequencyForAll(
                 50.0,
@@ -93,6 +102,7 @@ public class IntakeSubsystem extends SubsystemBase {
                 rollerSupplyCurrent);
         pivotMotor.optimizeBusUtilization();
         rollerMotor.optimizeBusUtilization();
+        rollerMotor2.optimizeBusUtilization();
 
         // PID defaults (safe and gentle)
         pivotPid.setTolerance(Units.degreesToRadians(2.0));
@@ -108,6 +118,7 @@ public class IntakeSubsystem extends SubsystemBase {
 
     @Override
     public void periodic() {
+        rollerMotor2.setControl(new Follower(rollerMotor.getDeviceID(), MotorAlignmentValue.Aligned));
         BaseStatusSignal.refreshAll(
                 pivotPosition,
                 pivotVelocity,
@@ -267,6 +278,7 @@ public class IntakeSubsystem extends SubsystemBase {
         rollerCommandVolts = 0.0;
         rollerCommandPercent = 0.0;
         rollerMotor.stopMotor();
+        rollerMotor2.stopMotor();
     }
 
     @AutoLogOutput(key = "Intake/Roller/VelocityRadPerSec")

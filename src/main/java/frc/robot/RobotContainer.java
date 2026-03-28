@@ -27,7 +27,6 @@ import frc.robot.commands.DriveCommands;
 import frc.robot.commands.IntakeOutCommand;
 import frc.robot.commands.IntakeStowCommand;
 import frc.robot.commands.RunIndexterDutyCycle;
-import frc.robot.commands.ShootAutoCommand;
 import frc.robot.commands.ShootCommand;
 import frc.robot.commands.ShootFromDistanceToHubCommand;
 import frc.robot.commands.ShootFromDistanceToHubCommandAuto;
@@ -150,7 +149,8 @@ public class RobotContainer {
         autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
         autoChooser.addOption("Far Mid Semantic Auto", buildAllianceCorrectFarMidAuto());
         autoChooser.addOption("Near Mid Semantic Auto", buildAllianceCorrectNearMidAuto());
-        autoChooser.addOption("Shoot Only", buildShootOnlyAuto());
+        autoChooser.addOption("Shoot Only Near", buildShootOnlyAutoNear());
+        autoChooser.addOption("Shoot Only Far", buildShootOnlyAutoFar());
         autoChooser.addOption("Drive", buildDriveForwardAuto());
 
         autoChooser.addOption("Drive Wheel Radius Characterization", DriveCommands.wheelRadiusCharacterization(drive));
@@ -248,12 +248,33 @@ public class RobotContainer {
         return auto;
     }
 
-    private Command buildShootOnlyAuto() {
+    private Command buildShootOnlyAutoNear() {
         SequentialCommandGroup commandGroup = new SequentialCommandGroup();
+        Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+        Pose2d startingPose;
+        if (alliance == Alliance.Blue) {
+            startingPose = new Pose2d(3.533, 0.598, new Rotation2d(0));
+        } else {
+            startingPose = new Pose2d(12.967, 0.598, new Rotation2d(0));
+        }
         commandGroup.addCommands(
-                Commands.runOnce(
-                        () -> drive.resetOdometry(new Pose2d(drive.getPose().getTranslation(), new Rotation2d()))),
-                new ShootAutoCommand(shooter, indexer, drive, testTurret));
+                Commands.runOnce(() -> drive.resetOdometry(startingPose)),
+                new ShootFromDistanceToHubCommandAuto(shooter, indexer, drive, testTurret));
+        return commandGroup;
+    }
+
+    private Command buildShootOnlyAutoFar() {
+        SequentialCommandGroup commandGroup = new SequentialCommandGroup();
+        Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Red);
+        Pose2d startingPose;
+        if (alliance == Alliance.Blue) {
+            startingPose = new Pose2d(3.533, 7.407, new Rotation2d(Math.PI));
+        } else {
+            startingPose = new Pose2d(12.967, 7.407, new Rotation2d(Math.PI));
+        }
+        commandGroup.addCommands(
+                Commands.runOnce(() -> drive.resetOdometry(startingPose)),
+                new ShootFromDistanceToHubCommandAuto(shooter, indexer, drive, testTurret));
         return commandGroup;
     }
 

@@ -37,7 +37,15 @@ public class ShootFromDistanceToHubCommand extends Command {
         Translation2d hubField = new Translation2d(hubX, hubY);
 
         shooter.runShotFromDistanceToHub(hubField);
-        turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(-10));
+        if ((drive.getRotation().getDegrees() > 90 && drive.getRotation().getDegrees() < 180)
+                || (drive.getRotation().getDegrees() < -90
+                        && drive.getRotation().getDegrees() > -180)) {
+            turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(-10));
+        } else if (drive.getRotation().getDegrees() > -90) {
+            turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(0));
+        } else {
+            turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(10));
+        }
     }
 
     @Override

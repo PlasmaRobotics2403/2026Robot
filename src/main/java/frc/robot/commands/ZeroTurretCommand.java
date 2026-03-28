@@ -26,14 +26,16 @@ public class ZeroTurretCommand extends Command {
     @Override
     public void execute() {
         if (targetDirection == true) {
-            turret.setDutyCycle(-0.25);
+            turret.setDutyCycle(-0.1);
         } else {
-            turret.setDutyCycle(0.25);
+            turret.setDutyCycle(0.1);
         }
     }
 
     @Override
-    public void end(boolean interrupted) {}
+    public void end(boolean interrupted) {
+        turret.setDutyCycle(0);
+    }
 
     @Override
     public boolean isFinished() {

@@ -34,6 +34,7 @@ public final class Constants {
 
             public static final RobotDeviceId INTAKE_PIVOT = new RobotDeviceId(21, "rio", 10);
             public static final RobotDeviceId INTAKE_ROLLER = new RobotDeviceId(22, "rio", 11);
+            public static final RobotDeviceId INTAKE_ROLLER2 = new RobotDeviceId(50, "rio", 11);
         }
     }
 
@@ -108,7 +109,7 @@ public final class Constants {
         public static final String TUNING_FLYWHEEL_TARGET_RPS_DASHBOARD_KEY = "Shooter/Tuning/FlywheelTargetRps";
         public static final double TUNING_FLYWHEEL_TARGET_RPS_DASHBOARD_DEFAULT = FLYWHEEL_DEFAULT_RPS;
 
-        public static final double HOOD_KP = 8.0;
+        public static final double HOOD_KP = 4.0;
         public static final double HOOD_KI = 0.0;
         public static final double HOOD_KD = 0.0;
         public static final double HOOD_KS = 0.0;
