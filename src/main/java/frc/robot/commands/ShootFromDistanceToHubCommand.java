@@ -42,7 +42,11 @@ public class ShootFromDistanceToHubCommand extends Command {
                         && drive.getRotation().getDegrees() > -180)) {
             turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(-10));
         } else if (drive.getRotation().getDegrees() > -90) {
-            turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(0));
+            if (DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Blue) {
+                turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(0));
+            } else {
+                turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(-10));
+            }
         } else {
             turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(10));
         }

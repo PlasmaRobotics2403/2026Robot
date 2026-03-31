@@ -61,6 +61,8 @@ public final class Constants {
         public static final double MAX_ANGLE_DEG = 183.0;
         public static final Translation2d TURRET_PIVOT_FROM_ROBOT_CENTER =
                 new Translation2d(Units.inchesToMeters(-6.25), Units.inchesToMeters(6.25)); // 6.25
+        public static final Translation2d TURRET_PIVOT_FROM_ROBOT_CENTER_AUTO =
+                new Translation2d(Units.inchesToMeters(-6.25), Units.inchesToMeters(6.25)); // 6.25
 
         // Camera calibration reference supplied by the user at turret angle -90 degrees (facing robot rear).
         // We model the camera as rigidly attached to the turret with a fixed offset from the turret pivot.

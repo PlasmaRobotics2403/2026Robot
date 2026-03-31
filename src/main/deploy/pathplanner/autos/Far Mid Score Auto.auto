@@ -7,7 +7,7 @@
         {
           "type": "named",
           "data": {
-            "name": "Shoot"
+            "name": "Static Shot"
           }
         },
         {
@@ -25,19 +25,19 @@
         {
           "type": "named",
           "data": {
-            "name": "Shoot"
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "Stow Intake"
+            "name": "Static Shot"
           }
         },
         {
           "type": "named",
           "data": {
             "name": "Stop Shooter"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "Stow Intake"
           }
         }
       ]

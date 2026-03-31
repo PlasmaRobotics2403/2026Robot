@@ -7,7 +7,7 @@
         {
           "type": "named",
           "data": {
-            "name": "Shoot"
+            "name": "Static Shot"
           }
         },
         {
@@ -25,7 +25,7 @@
         {
           "type": "named",
           "data": {
-            "name": "Shoot"
+            "name": "Static Shot"
           }
         },
         {

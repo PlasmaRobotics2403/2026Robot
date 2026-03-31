@@ -147,7 +147,7 @@ public class Drive extends SubsystemBase implements Vision.VisionConsumer {
                 this::resetOdometry,
                 this::getChassisSpeeds,
                 this::runVelocity,
-                new PPHolonomicDriveController(new PIDConstants(10.0, 0.0, 0.0), new PIDConstants(9.0, 0.0, 0.0)),
+                new PPHolonomicDriveController(new PIDConstants(11.0, 0.0, 0.0), new PIDConstants(10.0, 0.0, 0.0)),
                 PP_CONFIG,
                 () -> DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red,
                 this);
@@ -245,6 +245,36 @@ public class Drive extends SubsystemBase implements Vision.VisionConsumer {
     }
 
     public double calcTurretAngle(Translation2d targetField) {
+        Pose2d robotPose = getPose();
+        // robotPose = new Pose2d(robotPose.getX(), robotPose.getY(), new Rotation2d());
+        // Rotation2d robotHeading = robotPose.getRotation();
+        Translation2d robotTranslation = robotPose.getTranslation();
+
+        Translation2d compensatedTarget = getVelocityCompensatedTargetTranslation(targetField);
+
+        Translation2d turretOffsetRobot = TurretConstants.TURRET_PIVOT_FROM_ROBOT_CENTER;
+        Translation2d turretOffsetField = turretOffsetRobot.rotateBy(
+                new Rotation2d(robotPose.getRotation().getRadians()));
+        Translation2d turretField = robotTranslation.plus(turretOffsetField);
+
+        // Translation2d turretToTargetField = compensatedTarget.minus(robotTranslation);
+        Translation2d turretToTargetField = compensatedTarget.minus(turretField);
+
+        Rotation2d targetFieldAngle = turretToTargetField.getAngle();
+        Rotation2d targetRobotAngle =
+                targetFieldAngle.minus(new Rotation2d(robotPose.getRotation().getRadians()));
+
+        // Turret zero is robot-left
+        Rotation2d turretZeroAngle = Rotation2d.fromDegrees(90.0);
+        Rotation2d turretCommand = turretZeroAngle.minus(targetRobotAngle);
+
+        double targetRadians = MathUtil.angleModulus(turretCommand.getRadians());
+        targetRadians = applyTurretUnwind(targetRadians);
+
+        return targetRadians;
+    }
+
+    public double calcTurretAngleAuto(Translation2d targetField) {
         Pose2d robotPose = getPose();
         // robotPose = new Pose2d(robotPose.getX(), robotPose.getY(), new Rotation2d());
         // Rotation2d robotHeading = robotPose.getRotation();
