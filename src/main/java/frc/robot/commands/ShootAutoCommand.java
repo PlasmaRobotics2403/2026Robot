@@ -1,8 +1,9 @@
 package frc.robot.commands;
 
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
-import frc.robot.Constants.IntakeConstants;
 import frc.robot.Constants.ShooterConstants;
 import frc.robot.subsystems.IndexerSubsystem;
 import frc.robot.subsystems.IntakeSubsystem;
@@ -40,7 +41,7 @@ public class ShootAutoCommand extends Command {
 
     @Override
     public void execute() {
-        // Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+        Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
 
         // double hubX, hubY;
         // if (alliance == Alliance.Blue) {
@@ -53,35 +54,38 @@ public class ShootAutoCommand extends Command {
         // Translation2d hubField = new Translation2d(hubX, hubY);
 
         if (drive.getPose().getY() < 4) {
-            turret.setTargetAngleRadians(Math.toRadians(-24));
+            if (drive.getPose().getX() < 8.289) {
+                turret.setTargetAngleRadians(Math.toRadians(20));
+            } else {
+                turret.setTargetAngleRadians(Math.toRadians(165));
+            }
         } else {
-            turret.setTargetAngleRadians(Math.toRadians(5));
+            if (drive.getPose().getX() < 8.289) {
+                turret.setTargetAngleRadians(Math.toRadians(165));
+            } else {
+                turret.setTargetAngleRadians(Math.toRadians(20));
+            }
         }
-        indexer.setSpindexerDutyCycle(ShooterConstants.SPINDEXER_FEED_DUTY);
-        indexer.setShooterIndexerDutyCycle(ShooterConstants.SHOOTER_KICKER_FEED_DUTY);
+        // indexer.setSpindexerDutyCycle(ShooterConstants.SPINDEXER_FEED_DUTY);
+        // indexer.setShooterIndexerDutyCycle(ShooterConstants.SHOOTER_KICKER_FEED_DUTY);
 
-        shooter.runShot(0.5, 55);
-        // if (timer.hasElapsed(0.2)) {
-        //     indexer.setSpindexerDutyCycle(ShooterConstants.SPINDEXER_FEED_DUTY);
-        //     indexer.setShooterIndexerDutyCycle(ShooterConstants.SHOOTER_KICKER_FEED_DUTY);
-        // }
-
-        if (timer.hasElapsed(3)) {
-            intake.setPivotTargetDegrees(IntakeConstants.STOW_DEG);
-            intake.stopRoller();
+        shooter.runShot(0.5, 56);
+        if (timer.hasElapsed(0.5)) {
+            indexer.setSpindexerDutyCycle(ShooterConstants.SPINDEXER_FEED_DUTY);
+            indexer.setShooterIndexerDutyCycle(ShooterConstants.SHOOTER_KICKER_FEED_DUTY);
         }
     }
 
     @Override
     public void end(boolean interrupted) {
-        indexer.stopSpindexer();
-        indexer.stopShooterIndexer();
-        shooter.stopFlywheel();
-        shooter.setHoodAngleDegrees(0);
+        // indexer.stopSpindexer();
+        // indexer.stopShooterIndexer();
+        // shooter.stopFlywheel();
+        // shooter.setHoodAngleDegrees(0);
     }
 
     @Override
     public boolean isFinished() {
-        return timer.hasElapsed(7);
+        return false;
     }
 }
