@@ -168,7 +168,7 @@ public class TestTurretSubsystem extends SubsystemBase {
     }
 
     public boolean getLimitSwitch() {
-        return limitSwitch.get();
+        return !limitSwitch.get();
     }
 
     /** Returns the turret target angle in radians (post-gearbox). */
@@ -189,6 +189,12 @@ public class TestTurretSubsystem extends SubsystemBase {
         motor.setControl(voltageRequest.withOutput(volts));
     }
 
+    /**
+     * Runs the turret motor in open-loop duty cycle.
+     *
+     * <p>Duty cycle is the percent output in the range [-1.0, 1.0]. Calling this disables closed-loop position control
+     * until a new position target is set.
+     */
     public void setDutyCycle(double dutyCycle) {
         controlEnabled = false;
         motor.setControl(dutyCycleRequest.withOutput(dutyCycle));

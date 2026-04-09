@@ -117,6 +117,9 @@ public class Shooter extends SubsystemBase {
 
     @Override
     public void periodic() {
+        if (flywheelSetpointRps == 0.0) {
+            resetHoodMotorPosition();
+        }
         SmartDashboard.putNumber("Shooter/rpsOffset", rpsOffset);
         forceDashboardTargetsResetAfterBoot();
         io.updateInputs(inputs);
@@ -396,5 +399,11 @@ public class Shooter extends SubsystemBase {
 
     public ControlMode getControlMode() {
         return controlMode;
+    }
+
+    public void resetHoodMotorPosition() {
+        hoodSetpointRotations = hoodDegreesToMotorRotations(ShooterConstants.HOOD_ZERO_ANGLE_DEGREES);
+        io.setHoodPositionRotations(hoodSetpointRotations);
+        controlMode = ControlMode.HOOD_POSITION;
     }
 }

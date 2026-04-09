@@ -1,6 +1,8 @@
 package frc.robot;
 
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.Threads;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -70,6 +72,12 @@ public class Robot extends LoggedRobot {
         SmartDashboard.putString("GridSelector/targetGrid", robotContainer.getGridZone());
         SmartDashboard.putNumber("Turret/TagDistance", robotContainer.calculateDistanceToHubMeters());
 
+        if (DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Blue) {
+            SmartDashboard.putString("GameColor", "Blue");
+        } else {
+            SmartDashboard.putString("GameColor", "Red");
+        }
+
         SmartDashboard.putNumber("RobotY", robotContainer.getRobotY());
     }
 
@@ -98,6 +106,7 @@ public class Robot extends LoggedRobot {
         if (autonomousCommand != null) {
             autonomousCommand.cancel();
         }
+        robotContainer.stopShooter();
     }
 
     @Override

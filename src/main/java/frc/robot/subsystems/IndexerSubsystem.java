@@ -56,6 +56,11 @@ public class IndexerSubsystem extends SubsystemBase {
         shooterIndexerMotor.getConfigurator().apply(config);
     }
 
+    public void index(double speed) {
+        setSpindexerDutyCycle(speed);
+        setShooterIndexerDutyCycle(speed);
+    }
+
     public void setSpindexerDutyCycle(double dutyCycle) {
         double clamped = MathUtil.clamp(dutyCycle, -1.0, 1.0);
         spindexerMotor.setControl(spindexerDutyCycleRequest.withOutput(clamped));
@@ -75,7 +80,7 @@ public class IndexerSubsystem extends SubsystemBase {
     }
 
     public void stopSpindexer() {
-        spindexerMotor.stopMotor();
+        setSpindexerDutyCycle(0);
     }
 
     public void stopShooterIndexer() {

@@ -1,22 +1,24 @@
 package frc.robot;
 
-import static frc.robot.subsystems.vision.VisionConstants.camera0Name;
-import static frc.robot.subsystems.vision.VisionConstants.camera1Name;
-import static frc.robot.subsystems.vision.VisionConstants.camera2Name;
-import static frc.robot.subsystems.vision.VisionConstants.robotToCamera0;
-import static frc.robot.subsystems.vision.VisionConstants.robotToCamera1;
-import static frc.robot.subsystems.vision.VisionConstants.robotToCamera2;
+import java.util.Optional;
+
+import org.ironmaple.simulation.SimulatedArena;
+import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
+import org.ironmaple.simulation.seasonspecific.rebuilt2026.Arena2026Rebuilt;
+import org.littletonrobotics.junction.Logger;
+import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 import com.pathplanner.lib.commands.PathPlannerAuto;
-import com.pathplanner.lib.events.EventTrigger;
+
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
+import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -25,6 +27,7 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.commands.DriveCommands;
 import frc.robot.commands.IntakeOutCommand;
+import frc.robot.commands.IntakePulseCommand;
 import frc.robot.commands.IntakeStowCommand;
 import frc.robot.commands.RunIndexterDutyCycle;
 import frc.robot.commands.ShootAutoCommand;
@@ -52,17 +55,17 @@ import frc.robot.subsystems.shooter.ShooterIO;
 import frc.robot.subsystems.shooter.ShooterIOSim;
 import frc.robot.subsystems.shooter.ShooterIOTalonFX;
 import frc.robot.subsystems.vision.Vision;
+import static frc.robot.subsystems.vision.VisionConstants.camera0Name;
+import static frc.robot.subsystems.vision.VisionConstants.camera1Name;
+import static frc.robot.subsystems.vision.VisionConstants.camera2Name;
+import static frc.robot.subsystems.vision.VisionConstants.robotToCamera0;
+import static frc.robot.subsystems.vision.VisionConstants.robotToCamera1;
+import static frc.robot.subsystems.vision.VisionConstants.robotToCamera2;
 import frc.robot.subsystems.vision.VisionIO;
 import frc.robot.subsystems.vision.VisionIOPhotonVision;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
 import frc.robot.util.TurretGridSelector;
 import frc.robot.util.TurretGridSelector.GridTarget;
-import java.util.Optional;
-import org.ironmaple.simulation.SimulatedArena;
-import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
-import org.ironmaple.simulation.seasonspecific.rebuilt2026.Arena2026Rebuilt;
-import org.littletonrobotics.junction.Logger;
-import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 public class RobotContainer {
     private static final String FAR_MID_SCORE_AUTO_FILE = "Far Mid Score Auto";
@@ -83,10 +86,12 @@ public class RobotContainer {
     private final IntakeSubsystem intake = new IntakeSubsystem();
     private final ClimbSubsystem climb = new ClimbSubsystem();
     private final Field2d field = new Field2d();
-
+    Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
     private final LoggedDashboardChooser<Command> autoChooser;
 
     private final VisionIOPhotonVision cam0VisionIO;
+
+    private final SendableChooser<Command> chooser;
 
     public RobotContainer() {
         switch (Constants.currentMode) {
@@ -150,9 +155,15 @@ public class RobotContainer {
         autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
         autoChooser.addOption("Far Mid Semantic Auto", buildAllianceCorrectFarMidAuto());
         autoChooser.addOption("Near Mid Semantic Auto", buildAllianceCorrectNearMidAuto());
-        autoChooser.addOption("Shoot Only", buildShootOnlyAuto());
+        autoChooser.addOption("2BlueFar Mid Semantic Auto", buildAllianceCorrect2BlueFarMidAuto());
+        autoChooser.addOption("2BlueNear Mid Semantic Auto", buildAllianceCorrect2BlueNearMidAuto());
+        autoChooser.addOption("2RedFar Mid Semantic Auto", buildAllianceCorrect2RedFarMidAuto());
+        autoChooser.addOption("2RedNear Mid Semantic Auto", buildAllianceCorrect2RedNearMidAuto());
+        autoChooser.addOption("Shoot Only Near Blue", buildShootOnlyAutoNearBlue());
+        autoChooser.addOption("Shoot Only Far Blue", buildShootOnlyAutoFarBlue());
+        autoChooser.addOption("Shoot Only Near Red", buildShootOnlyAutoNearRed());
+        autoChooser.addOption("Shoot Only Far Red", buildShootOnlyAutoFarRed());
         autoChooser.addOption("Drive", buildDriveForwardAuto());
-
         autoChooser.addOption("Drive Wheel Radius Characterization", DriveCommands.wheelRadiusCharacterization(drive));
         autoChooser.addOption("Drive Simple FF Characterization", DriveCommands.feedforwardCharacterization(drive));
         autoChooser.addOption(
@@ -162,20 +173,26 @@ public class RobotContainer {
         autoChooser.addOption("Drive SysId (Dynamic Forward)", drive.sysIdDynamic(SysIdRoutine.Direction.kForward));
         autoChooser.addOption("Drive SysId (Dynamic Reverse)", drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
 
+        chooser = AutoBuilder.buildAutoChooser();
+        SmartDashboard.putData(chooser);
         configureButtonBindings();
-        checkEventTriggers();
     }
 
     private void registerNamedCommands() {
-        // NamedCommands.registerCommand(
-        //         "Deploy Intake",
-        //         Commands.run(
-        //                         () -> {
-        //                             intake.setPivotTargetDegrees(Constants.IntakeConstants.DEPLOY_DEG);
-        //                             intake.runRollersIn(Constants.IntakeConstants.ROLLER_PERCENT);
-        //                         },
-        //                         intake)
-        //                 .withName("Deploy Intake"));
+        NamedCommands.registerCommand("Deploy Intake", new IntakeOutCommand(intake).withName("Deploy Intake"));
+
+        NamedCommands.registerCommand("Stow Intake", new IntakeStowCommand(intake).withName("Stow Intake"));
+        NamedCommands.registerCommand("Pulse Intake", new IntakePulseCommand(intake).withName("Pulse Intake"));
+
+        NamedCommands.registerCommand(
+                "Static Shot",
+                new ShootAutoCommand(shooter, indexer, drive, testTurret, intake).withName("Static Shot"));
+
+        NamedCommands.registerCommand(
+                "Test Static Shot",
+                Commands.runOnce(() -> shooter.runShot(0.5, 55), shooter)
+                        .andThen(Commands.runOnce(() -> testTurret.setTargetAngleRadians(Math.toRadians(-24))))
+                        .andThen(Commands.runOnce(() -> indexer.index(0.5), indexer)));
 
         NamedCommands.registerCommand(
                 "Stop Rollers",
@@ -189,7 +206,7 @@ public class RobotContainer {
 
         NamedCommands.registerCommand(
                 "Shoot",
-                Commands.deadline(new ShootFromDistanceToHubCommandAuto(shooter, indexer, drive, testTurret))
+                Commands.deadline(new ShootFromDistanceToHubCommandAuto(shooter, indexer, drive, testTurret, 5))
                         .withName("Shoot"));
 
         NamedCommands.registerCommand(
@@ -216,6 +233,38 @@ public class RobotContainer {
 
                             PathPlannerAuto auto = new PathPlannerAuto(autoFile);
                             drive.resetOdometry(auto.getStartingPose());
+                            // Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
+
+                            return auto;
+                        },
+                        java.util.Set.of(drive, intake, shooter, indexer))
+                .withName("Far Mid Semantic Auto");
+    }
+
+    private Command buildAllianceCorrect2BlueFarMidAuto() {
+        return Commands.defer(
+                        () -> {
+                            Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+                            String autoFile = "2Far Mid Score Auto";
+
+                            PathPlannerAuto auto = new PathPlannerAuto(autoFile);
+                            drive.resetOdometry(auto.getStartingPose());
+                            Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
+
+                            return auto;
+                        },
+                        java.util.Set.of(drive, intake, shooter, indexer))
+                .withName("Far Mid Semantic Auto");
+    }
+
+    private Command buildAllianceCorrect2RedFarMidAuto() {
+        return Commands.defer(
+                        () -> {
+                            Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+                            String autoFile = "2Near Mid Score Auto";
+
+                            PathPlannerAuto auto = new PathPlannerAuto(autoFile);
+                            drive.resetOdometry(auto.getStartingPose());
                             Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
 
                             return auto;
@@ -233,7 +282,39 @@ public class RobotContainer {
 
                             PathPlannerAuto auto = new PathPlannerAuto(autoFile);
                             drive.resetOdometry(auto.getStartingPose());
-                            Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
+                            // Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
+
+                            return auto;
+                        },
+                        java.util.Set.of(drive, intake, shooter, indexer))
+                .withName("Near Mid Semantic Auto");
+    }
+
+    private Command buildAllianceCorrect2RedNearMidAuto() {
+        return Commands.defer(
+                        () -> {
+                            Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+                            String autoFile = "2Far Mid Score Auto";
+
+                            PathPlannerAuto auto = new PathPlannerAuto(autoFile);
+                            drive.resetOdometry(auto.getStartingPose());
+                            // Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
+
+                            return auto;
+                        },
+                        java.util.Set.of(drive, intake, shooter, indexer))
+                .withName("Near Mid Semantic Auto");
+    }
+
+    private Command buildAllianceCorrect2BlueNearMidAuto() {
+        return Commands.defer(
+                        () -> {
+                            Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+                            String autoFile = "2Near Mid Score Auto";
+
+                            PathPlannerAuto auto = new PathPlannerAuto(autoFile);
+                            drive.resetOdometry(auto.getStartingPose());
+                            // Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
 
                             return auto;
                         },
@@ -244,16 +325,51 @@ public class RobotContainer {
     private Command buildDriveForwardAuto() {
         PathPlannerAuto auto = new PathPlannerAuto(DRIVE_FORWARD_AUTO_FILE);
         drive.resetOdometry(auto.getStartingPose());
-        Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
+        // Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
         return auto;
     }
 
-    private Command buildShootOnlyAuto() {
+    private Command buildShootOnlyAutoNearBlue() {
         SequentialCommandGroup commandGroup = new SequentialCommandGroup();
+        Pose2d startingPose;
+        startingPose = new Pose2d(3.533, 0.598, new Rotation2d(Math.PI / 2));
+
         commandGroup.addCommands(
-                Commands.runOnce(
-                        () -> drive.resetOdometry(new Pose2d(drive.getPose().getTranslation(), new Rotation2d()))),
-                new ShootAutoCommand(shooter, indexer, drive, testTurret));
+                Commands.runOnce(() -> drive.resetOdometry(startingPose)),
+                new ShootFromDistanceToHubCommandAuto(shooter, indexer, drive, testTurret, 5));
+        return commandGroup;
+    }
+
+    private Command buildShootOnlyAutoNearRed() {
+        SequentialCommandGroup commandGroup = new SequentialCommandGroup();
+        Pose2d startingPose;
+        startingPose = new Pose2d(12.967, 0.598, new Rotation2d(-Math.PI / 2));
+        commandGroup.addCommands(
+                Commands.runOnce(() -> drive.resetOdometry(startingPose)),
+                new ShootFromDistanceToHubCommandAuto(shooter, indexer, drive, testTurret, 5));
+        return commandGroup;
+    }
+
+    private Command buildShootOnlyAutoFarBlue() {
+        SequentialCommandGroup commandGroup = new SequentialCommandGroup();
+        Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Red);
+        Pose2d startingPose;
+        startingPose = new Pose2d(3.533, 7.407, new Rotation2d(Math.PI / 2));
+        commandGroup.addCommands(
+                Commands.runOnce(() -> drive.resetOdometry(startingPose)),
+                new ShootFromDistanceToHubCommandAuto(shooter, indexer, drive, testTurret, 5));
+        return commandGroup;
+    }
+
+    private Command buildShootOnlyAutoFarRed() {
+        SequentialCommandGroup commandGroup = new SequentialCommandGroup();
+        Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Red);
+        Pose2d startingPose;
+        startingPose = new Pose2d(12.967, 7.407, new Rotation2d(Math.PI));
+
+        commandGroup.addCommands(
+                Commands.runOnce(() -> drive.resetOdometry(startingPose)),
+                new ShootFromDistanceToHubCommandAuto(shooter, indexer, drive, testTurret, 5));
         return commandGroup;
     }
 
@@ -289,9 +405,9 @@ public class RobotContainer {
                 .leftTrigger()
                 .whileTrue(DriveCommands.joystickDrive(
                         drive,
-                        () -> -controller.getLeftY() * 0.5,
-                        () -> -controller.getLeftX() * 0.5,
-                        () -> -controller.getRightX() * 0.5));
+                        () -> -controller.getLeftY() * 0.65,
+                        () -> -controller.getLeftX() * 0.65,
+                        () -> -controller.getRightX() * 0.65));
         controller.rightTrigger().whileTrue(new IntakeOutCommand(intake));
 
         controller.a().onTrue(new IntakeStowCommand(intake));
@@ -348,34 +464,12 @@ public class RobotContainer {
                         Constants.ShooterConstants.SHOOTER_KICKER_FEED_DUTY));
     }
 
-    private void checkEventTriggers() {
-        new EventTrigger("Deploy Intake").whileTrue(new IntakeOutCommand(intake));
-        new EventTrigger("Stow Intake").whileTrue(new IntakeStowCommand(intake));
-
-        new EventTrigger("Shoot").whileTrue(new ShootFromDistanceToHubCommandAuto(shooter, indexer, drive, testTurret));
-        // new EventTrigger("Stop Shooter")
-        //         .whileTrue(Commands.runOnce(
-        //                 () -> {
-        //                     shooter.stopFlywheel();
-        //                     // intake.stopRoller();
-        //                     indexer.stopSpindexer();
-        //                     indexer.stopShooterIndexer();
-        //                 },
-        //                 shooter,
-        //                 intake,
-        //                 indexer));
-
-        // new EventTrigger("Stop Rollers")
-        //         .whileTrue(Commands.runOnce(
-        //                 () -> {
-        //                     intake.setPivotTargetDegrees(Constants.IntakeConstants.STOW_DEG);
-        //                     intake.stopRoller();
-        //                 },
-        //                 intake));
-    }
-
     public Command getAutonomousCommand() {
         return autoChooser.get();
+        // return Commands.runOnce(() -> shooter.runShot(0.5, 55), shooter)
+        //         .andThen(Commands.runOnce(() -> testTurret.setTargetAngleRadians(Math.toRadians(-24))))
+        //         .andThen(Commands.runOnce(() -> indexer.index(0.5), indexer))
+        //         .until(() -> false);
     }
 
     public void resetSimulation() {
@@ -456,5 +550,11 @@ public class RobotContainer {
 
     public double getRobotY() {
         return drive.getPose().getTranslation().getY();
+    }
+
+    public void stopShooter() {
+        shooter.runFlywheelDutyCycle(0);
+        indexer.setSpindexerDutyCycle(0);
+        indexer.setShooterIndexerDutyCycle(0);
     }
 }

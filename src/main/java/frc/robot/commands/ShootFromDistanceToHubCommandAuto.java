@@ -19,12 +19,15 @@ public class ShootFromDistanceToHubCommandAuto extends Command {
     private final TestTurretSubsystem turret;
     private Timer timer;
 
+    private double time;
+
     public ShootFromDistanceToHubCommandAuto(
-            Shooter shooter, IndexerSubsystem indexer, Drive drive, TestTurretSubsystem turret) {
+            Shooter shooter, IndexerSubsystem indexer, Drive drive, TestTurretSubsystem turret, double time) {
         this.shooter = shooter;
         this.indexer = indexer;
         this.drive = drive;
         this.turret = turret;
+        this.time = time;
 
         this.timer = new Timer();
         addRequirements(shooter);
@@ -49,11 +52,25 @@ public class ShootFromDistanceToHubCommandAuto extends Command {
             hubY = Constants.redHubY;
         }
         Translation2d hubField = new Translation2d(hubX, hubY);
-        turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(-10));
 
         shooter.runShotFromDistanceToHub(hubField);
+        if ((drive.getRotation().getDegrees() > 90 && drive.getRotation().getDegrees() < 180)
+                || (drive.getRotation().getDegrees() < -90
+                        && drive.getRotation().getDegrees() > -180)) {
+            turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(-5));
+        } else if (drive.getRotation().getDegrees() > -90) {
+            if (DriverStation.getAlliance().orElse(Alliance.Red) == Alliance.Blue) {
+                turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(0));
+            } else {
+                turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(-5));
+            }
+        } else {
+            turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(10));
+        }
 
-        if (timer.hasElapsed(1)) {
+        // turret.setTargetAngleRadians(drive.calcTurretAngle(hubField));
+
+        if (timer.hasElapsed(2)) {
             indexer.setShooterIndexerDutyCycle(0.5);
             indexer.setSpindexerDutyCycle(0.5);
         }
@@ -69,6 +86,6 @@ public class ShootFromDistanceToHubCommandAuto extends Command {
 
     @Override
     public boolean isFinished() {
-        return timer.hasElapsed(10);
+        return timer.hasElapsed(time);
     }
 }

@@ -70,5 +70,6 @@
     "editor.defaultFormatter": "richardwillis.vscode-spotless-gradle"
   },
   "wpilib.selectDefaultSimulateExtension": true,
-  "wpilib.skipSelectSimulateExtension": false
+  "wpilib.skipSelectSimulateExtension": false,
+  "java.debug.settings.onBuildFailureProceed": true
 }
