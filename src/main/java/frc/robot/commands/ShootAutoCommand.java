@@ -55,21 +55,25 @@ public class ShootAutoCommand extends Command {
 
         if (drive.getPose().getY() < 4) {
             if (drive.getPose().getX() < 8.289) {
-                turret.setTargetAngleRadians(Math.toRadians(20));
+                turret.setTargetAngleRadians(Math.toRadians(18));
+                shooter.runShot(580, 56);
+
             } else {
-                turret.setTargetAngleRadians(Math.toRadians(165));
+                turret.setTargetAngleRadians(Math.toRadians(175));
+                shooter.runShot(600, 56);
             }
         } else {
             if (drive.getPose().getX() < 8.289) {
-                turret.setTargetAngleRadians(Math.toRadians(165));
+                turret.setTargetAngleRadians(Math.toRadians(175));
+                shooter.runShot(600, 56);
             } else {
-                turret.setTargetAngleRadians(Math.toRadians(20));
+                turret.setTargetAngleRadians(Math.toRadians(18));
+                shooter.runShot(580, 56);
             }
         }
         // indexer.setSpindexerDutyCycle(ShooterConstants.SPINDEXER_FEED_DUTY);
         // indexer.setShooterIndexerDutyCycle(ShooterConstants.SHOOTER_KICKER_FEED_DUTY);
 
-        shooter.runShot(0.5, 56);
         if (timer.hasElapsed(0.5)) {
             indexer.setSpindexerDutyCycle(ShooterConstants.SPINDEXER_FEED_DUTY);
             indexer.setShooterIndexerDutyCycle(ShooterConstants.SHOOTER_KICKER_FEED_DUTY);

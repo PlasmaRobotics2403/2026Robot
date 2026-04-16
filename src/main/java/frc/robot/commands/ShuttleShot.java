@@ -1,6 +1,5 @@
 package frc.robot.commands;
 
-import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -32,24 +31,24 @@ public class ShuttleShot extends Command {
         double targetX, targetY;
         if (alliance == Alliance.Blue) {
             if (currentYPos < 4) {
-                targetX = Constants.blueNearShuttleX;
-                targetY = Constants.blueNearShuttleY;
+                targetX = Constants.blueShuttleX;
+                targetY = drive.getPose().getY();
             } else {
-                targetX = Constants.blueFarShuttleX;
-                targetY = Constants.blueFarShuttleY;
+                targetX = Constants.blueShuttleX;
+                targetY = drive.getPose().getY();
             }
         } else {
             if (currentYPos < 4) {
-                targetX = Constants.redNearShuttleX;
-                targetY = Constants.redNearShuttleY;
+                targetX = Constants.redShuttleX;
+                targetY = drive.getPose().getY();
             } else {
-                targetX = Constants.redFarShuttleX;
-                targetY = Constants.redFarShuttleY;
+                targetX = Constants.redShuttleX;
+                targetY = drive.getPose().getY();
             }
         }
 
-        turret.setTargetAngleRadians(drive.calcTurretAngle(new Translation2d(targetX, targetY)) + Math.toRadians(-10));
-        shooter.runShuttleShot(new Translation2d(targetX, targetY));
+        shooter.runShot(1000, 58);
+        turret.setTargetAngleRadians(Math.toRadians(drive.getRotation().getDegrees()) + Math.toRadians(-90));
     }
 
     @Override

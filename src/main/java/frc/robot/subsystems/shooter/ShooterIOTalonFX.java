@@ -75,6 +75,10 @@ public class ShooterIOTalonFX implements ShooterIO {
         flywheelConfig.CurrentLimits.SupplyCurrentLimit = ShooterConstants.FLYWHEEL_SUPPLY_CURRENT_LIMIT;
         flywheelConfig.CurrentLimits.SupplyCurrentLimitEnable = true;
 
+        flywheelConfig.OpenLoopRamps.DutyCycleOpenLoopRampPeriod = 0.25;
+        flywheelConfig.OpenLoopRamps.VoltageOpenLoopRampPeriod = 0.25;
+        flywheelConfig.ClosedLoopRamps.VoltageClosedLoopRampPeriod = 0.15;
+
         flywheelConfig.Slot0 = new Slot0Configs()
                 .withKP(ShooterConstants.FLYWHEEL_KP)
                 .withKI(ShooterConstants.FLYWHEEL_KI)

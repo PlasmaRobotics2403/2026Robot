@@ -81,11 +81,20 @@ public class IntakeSubsystem extends SubsystemBase {
         pivotConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
         pivotConfig.CurrentLimits.SupplyCurrentLimit = 30.0;
         pivotConfig.CurrentLimits.SupplyCurrentLimitEnable = true;
+
+        pivotConfig.OpenLoopRamps.DutyCycleOpenLoopRampPeriod = 0.25;
+        pivotConfig.OpenLoopRamps.VoltageOpenLoopRampPeriod = 0.25;
+        pivotConfig.ClosedLoopRamps.VoltageClosedLoopRampPeriod = 0.15;
         pivotMotor.getConfigurator().apply(pivotConfig);
 
         rollerConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
         rollerConfig.CurrentLimits.SupplyCurrentLimit = 40.0;
         rollerConfig.CurrentLimits.SupplyCurrentLimitEnable = true;
+
+        rollerConfig.OpenLoopRamps.DutyCycleOpenLoopRampPeriod = 0.25;
+        rollerConfig.OpenLoopRamps.VoltageOpenLoopRampPeriod = 0.25;
+        rollerConfig.ClosedLoopRamps.VoltageClosedLoopRampPeriod = 0.15;
+
         rollerMotor.getConfigurator().apply(rollerConfig);
         rollerMotor2.getConfigurator().apply(rollerConfig);
 

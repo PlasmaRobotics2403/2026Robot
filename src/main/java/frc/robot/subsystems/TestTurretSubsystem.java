@@ -77,6 +77,10 @@ public class TestTurretSubsystem extends SubsystemBase {
         config.MotionMagic.MotionMagicAcceleration = TurretConstants.kAccelerationRpsPerSec;
         config.MotionMagic.MotionMagicJerk = TurretConstants.kJerkRpsPerSec2;
 
+        config.OpenLoopRamps.DutyCycleOpenLoopRampPeriod = 0.25;
+        config.OpenLoopRamps.VoltageOpenLoopRampPeriod = 0.25;
+        config.ClosedLoopRamps.VoltageClosedLoopRampPeriod = 0.15;
+
         motor.getConfigurator().apply(config);
         motor.setPosition(0.0);
 

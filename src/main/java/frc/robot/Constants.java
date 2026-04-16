@@ -16,17 +16,8 @@ public final class Constants {
     public static final double redHubX = 11.893; // meters
     public static final double redHubY = 4; // meters
 
-    public static final double blueFarShuttleX = 3.3; // meters
-    public static final double blueFarShuttleY = 7.2; // meters
-
-    public static final double blueNearShuttleX = 3.3; // meters
-    public static final double blueNearShuttleY = 2.7; // meters
-
-    public static final double redFarShuttleX = 13.4; // meters
-    public static final double redFarShuttleY = 5.2; // meters
-
-    public static final double redNearShuttleX = 13.4; // meters
-    public static final double redNearShuttleY = 4; // meters
+    public static final double blueShuttleX = 2.6; // meters
+    public static final double redShuttleX = 13.8; // meters
 
     public static class RobotDevices {
         public static final class IntakeConstants {

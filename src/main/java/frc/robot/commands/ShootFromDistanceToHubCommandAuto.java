@@ -57,12 +57,12 @@ public class ShootFromDistanceToHubCommandAuto extends Command {
         if ((drive.getRotation().getDegrees() > 90 && drive.getRotation().getDegrees() < 180)
                 || (drive.getRotation().getDegrees() < -90
                         && drive.getRotation().getDegrees() > -180)) {
-            turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(-5));
+            turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(-10));
         } else if (drive.getRotation().getDegrees() > -90) {
-            if (DriverStation.getAlliance().orElse(Alliance.Red) == Alliance.Blue) {
-                turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(0));
+            if (DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Blue) {
+                turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(10));
             } else {
-                turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(-5));
+                turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(10));
             }
         } else {
             turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(10));
@@ -86,6 +86,6 @@ public class ShootFromDistanceToHubCommandAuto extends Command {
 
     @Override
     public boolean isFinished() {
-        return timer.hasElapsed(time);
+        return false;
     }
 }

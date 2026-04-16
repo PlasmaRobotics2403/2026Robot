@@ -40,15 +40,23 @@ public class ShootFromDistanceToHubCommand extends Command {
         if ((drive.getRotation().getDegrees() > 90 && drive.getRotation().getDegrees() < 180)
                 || (drive.getRotation().getDegrees() < -90
                         && drive.getRotation().getDegrees() > -180)) {
-            turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(-10));
+            if (DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Blue) {
+                turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(-10));
+            } else {
+                turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(8));
+            }
         } else if (drive.getRotation().getDegrees() > -90) {
             if (DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Blue) {
-                turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(0));
+                turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(10));
+            } else {
+                turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(-12));
+            }
+        } else {
+            if (DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Blue) {
+                turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(10));
             } else {
                 turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(-10));
             }
-        } else {
-            turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(10));
         }
     }
 

@@ -382,7 +382,7 @@ public class Shooter extends SubsystemBase {
     public double evaluateFlywheelRpsHub(Translation2d target) {
         double distance = drive.distanceToTargetMeters(target);
         if (distance <= 2.5) {
-            return 49;
+            return 48;
         }
 
         return 0.0441314 * Math.pow(distance, 2) + 3.44913 * distance + 40.60355 + rpsOffset;
@@ -390,6 +390,9 @@ public class Shooter extends SubsystemBase {
 
     public double evaluateHoodDegreesHub(Translation2d target) {
         double distance = drive.distanceToTargetMeters(target);
+        if (distance <= 2.5) {
+            return 0;
+        }
         return 217.3913 * distance - 326.08696;
     }
 

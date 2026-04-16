@@ -1,17 +1,15 @@
 package frc.robot;
 
-import java.util.Optional;
-
-import org.ironmaple.simulation.SimulatedArena;
-import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
-import org.ironmaple.simulation.seasonspecific.rebuilt2026.Arena2026Rebuilt;
-import org.littletonrobotics.junction.Logger;
-import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
+import static frc.robot.subsystems.vision.VisionConstants.camera0Name;
+import static frc.robot.subsystems.vision.VisionConstants.camera1Name;
+import static frc.robot.subsystems.vision.VisionConstants.camera2Name;
+import static frc.robot.subsystems.vision.VisionConstants.robotToCamera0;
+import static frc.robot.subsystems.vision.VisionConstants.robotToCamera1;
+import static frc.robot.subsystems.vision.VisionConstants.robotToCamera2;
 
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 import com.pathplanner.lib.commands.PathPlannerAuto;
-
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
@@ -24,7 +22,6 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
-import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.commands.DriveCommands;
 import frc.robot.commands.IntakeOutCommand;
 import frc.robot.commands.IntakePulseCommand;
@@ -55,17 +52,17 @@ import frc.robot.subsystems.shooter.ShooterIO;
 import frc.robot.subsystems.shooter.ShooterIOSim;
 import frc.robot.subsystems.shooter.ShooterIOTalonFX;
 import frc.robot.subsystems.vision.Vision;
-import static frc.robot.subsystems.vision.VisionConstants.camera0Name;
-import static frc.robot.subsystems.vision.VisionConstants.camera1Name;
-import static frc.robot.subsystems.vision.VisionConstants.camera2Name;
-import static frc.robot.subsystems.vision.VisionConstants.robotToCamera0;
-import static frc.robot.subsystems.vision.VisionConstants.robotToCamera1;
-import static frc.robot.subsystems.vision.VisionConstants.robotToCamera2;
 import frc.robot.subsystems.vision.VisionIO;
 import frc.robot.subsystems.vision.VisionIOPhotonVision;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
 import frc.robot.util.TurretGridSelector;
 import frc.robot.util.TurretGridSelector.GridTarget;
+import java.util.Optional;
+import org.ironmaple.simulation.SimulatedArena;
+import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
+import org.ironmaple.simulation.seasonspecific.rebuilt2026.Arena2026Rebuilt;
+import org.littletonrobotics.junction.Logger;
+import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 public class RobotContainer {
     private static final String FAR_MID_SCORE_AUTO_FILE = "Far Mid Score Auto";
@@ -153,25 +150,34 @@ public class RobotContainer {
         SmartDashboard.putData("Field", field);
 
         autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
-        autoChooser.addOption("Far Mid Semantic Auto", buildAllianceCorrectFarMidAuto());
-        autoChooser.addOption("Near Mid Semantic Auto", buildAllianceCorrectNearMidAuto());
+        // autoChooser.addOption("Far Mid Semantic Auto", buildAllianceCorrectFarMidAuto());
+        // autoChooser.addOption("Near Mid Semantic Auto", buildAllianceCorrectNearMidAuto());
         autoChooser.addOption("2BlueFar Mid Semantic Auto", buildAllianceCorrect2BlueFarMidAuto());
         autoChooser.addOption("2BlueNear Mid Semantic Auto", buildAllianceCorrect2BlueNearMidAuto());
         autoChooser.addOption("2RedFar Mid Semantic Auto", buildAllianceCorrect2RedFarMidAuto());
         autoChooser.addOption("2RedNear Mid Semantic Auto", buildAllianceCorrect2RedNearMidAuto());
+
+        autoChooser.addOption("Depo Auto", buildDepoAuto());
+
+        autoChooser.addOption("RedNearSweep Score Auto", buildRedNearSweepAuto());
+        autoChooser.addOption("RedFarSweep Score Auto", buildRedFarSweepAuto());
+        autoChooser.addOption("BlueNearSweep Score Auto", buildBlueNearSweepAuto());
+        autoChooser.addOption("BlueFarSweep Score Auto", buildBlueFarSweepAuto());
+
         autoChooser.addOption("Shoot Only Near Blue", buildShootOnlyAutoNearBlue());
         autoChooser.addOption("Shoot Only Far Blue", buildShootOnlyAutoFarBlue());
         autoChooser.addOption("Shoot Only Near Red", buildShootOnlyAutoNearRed());
         autoChooser.addOption("Shoot Only Far Red", buildShootOnlyAutoFarRed());
         autoChooser.addOption("Drive", buildDriveForwardAuto());
-        autoChooser.addOption("Drive Wheel Radius Characterization", DriveCommands.wheelRadiusCharacterization(drive));
-        autoChooser.addOption("Drive Simple FF Characterization", DriveCommands.feedforwardCharacterization(drive));
-        autoChooser.addOption(
-                "Drive SysId (Quasistatic Forward)", drive.sysIdQuasistatic(SysIdRoutine.Direction.kForward));
-        autoChooser.addOption(
-                "Drive SysId (Quasistatic Reverse)", drive.sysIdQuasistatic(SysIdRoutine.Direction.kReverse));
-        autoChooser.addOption("Drive SysId (Dynamic Forward)", drive.sysIdDynamic(SysIdRoutine.Direction.kForward));
-        autoChooser.addOption("Drive SysId (Dynamic Reverse)", drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
+        // autoChooser.addOption("Drive Wheel Radius Characterization",
+        // DriveCommands.wheelRadiusCharacterization(drive));
+        // autoChooser.addOption("Drive Simple FF Characterization", DriveCommands.feedforwardCharacterization(drive));
+        // autoChooser.addOption(
+        //         "Drive SysId (Quasistatic Forward)", drive.sysIdQuasistatic(SysIdRoutine.Direction.kForward));
+        // autoChooser.addOption(
+        //         "Drive SysId (Quasistatic Reverse)", drive.sysIdQuasistatic(SysIdRoutine.Direction.kReverse));
+        // autoChooser.addOption("Drive SysId (Dynamic Forward)", drive.sysIdDynamic(SysIdRoutine.Direction.kForward));
+        // autoChooser.addOption("Drive SysId (Dynamic Reverse)", drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
 
         chooser = AutoBuilder.buildAutoChooser();
         SmartDashboard.putData(chooser);
@@ -322,6 +328,86 @@ public class RobotContainer {
                 .withName("Near Mid Semantic Auto");
     }
 
+    private Command buildDepoAuto() {
+        return Commands.defer(
+                        () -> {
+                            Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+                            String autoFile = "Depo Auto";
+
+                            PathPlannerAuto auto = new PathPlannerAuto(autoFile);
+                            drive.resetOdometry(auto.getStartingPose());
+                            // Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
+
+                            return auto;
+                        },
+                        java.util.Set.of(drive, intake, shooter, indexer))
+                .withName("Depo Auto");
+    }
+
+    private Command buildBlueNearSweepAuto() {
+        return Commands.defer(
+                        () -> {
+                            Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+                            String autoFile = "Near Sweep Score Auto";
+
+                            PathPlannerAuto auto = new PathPlannerAuto(autoFile);
+                            drive.resetOdometry(auto.getStartingPose());
+                            // Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
+
+                            return auto;
+                        },
+                        java.util.Set.of(drive, intake, shooter, indexer))
+                .withName("Near Sweep Score Auto");
+    }
+
+    private Command buildBlueFarSweepAuto() {
+        return Commands.defer(
+                        () -> {
+                            Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+                            String autoFile = "Far Sweep Score Auto";
+
+                            PathPlannerAuto auto = new PathPlannerAuto(autoFile);
+                            drive.resetOdometry(auto.getStartingPose());
+                            // Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
+
+                            return auto;
+                        },
+                        java.util.Set.of(drive, intake, shooter, indexer))
+                .withName("Far Sweep Score Auto");
+    }
+
+    private Command buildRedNearSweepAuto() {
+        return Commands.defer(
+                        () -> {
+                            Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+                            String autoFile = "Far Sweep Score Auto";
+
+                            PathPlannerAuto auto = new PathPlannerAuto(autoFile);
+                            drive.resetOdometry(auto.getStartingPose());
+                            // Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
+
+                            return auto;
+                        },
+                        java.util.Set.of(drive, intake, shooter, indexer))
+                .withName("Far Sweep Score Auto");
+    }
+
+    private Command buildRedFarSweepAuto() {
+        return Commands.defer(
+                        () -> {
+                            Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+                            String autoFile = "Near Sweep Score Auto";
+
+                            PathPlannerAuto auto = new PathPlannerAuto(autoFile);
+                            drive.resetOdometry(auto.getStartingPose());
+                            // Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
+
+                            return auto;
+                        },
+                        java.util.Set.of(drive, intake, shooter, indexer))
+                .withName("Far Sweep Score Auto");
+    }
+
     private Command buildDriveForwardAuto() {
         PathPlannerAuto auto = new PathPlannerAuto(DRIVE_FORWARD_AUTO_FILE);
         drive.resetOdometry(auto.getStartingPose());
@@ -410,7 +496,7 @@ public class RobotContainer {
                         () -> -controller.getRightX() * 0.65));
         controller.rightTrigger().whileTrue(new IntakeOutCommand(intake));
 
-        controller.a().onTrue(new IntakeStowCommand(intake));
+        controller.a().whileTrue(new IntakePulseCommand(intake));
         // controller
         //         .b()
         //         .whileTrue(new ShootFromDistanceCommand(
