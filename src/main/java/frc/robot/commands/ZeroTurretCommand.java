@@ -35,6 +35,7 @@ public class ZeroTurretCommand extends Command {
     @Override
     public void end(boolean interrupted) {
         turret.setDutyCycle(0);
+        turret.resetPosition();
     }
 
     @Override

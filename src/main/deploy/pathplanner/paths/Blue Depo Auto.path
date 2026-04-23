@@ -32,11 +32,11 @@
     },
     {
       "anchor": {
-        "x": 1.0396222222222224,
+        "x": 0.6693333333333333,
         "y": 5.9643999999999995
       },
       "prevControl": {
-        "x": 1.280630680079855,
+        "x": 0.9103417911909659,
         "y": 5.897955111249353
       },
       "nextControl": null,
@@ -69,9 +69,14 @@
   "eventMarkers": [
     {
       "name": "Deploy Intake",
-      "waypointRelativePos": 0.7508440243078854,
+      "waypointRelativePos": 0.75,
       "endWaypointRelativePos": null,
-      "command": null
+      "command": {
+        "type": "named",
+        "data": {
+          "name": "Deploy Intake"
+        }
+      }
     }
   ],
   "globalConstraints": {

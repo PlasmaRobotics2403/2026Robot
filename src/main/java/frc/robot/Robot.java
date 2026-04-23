@@ -7,6 +7,8 @@ import edu.wpi.first.wpilibj.Threads;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import frc.robot.subsystems.LEDs;
+import java.util.Optional;
 import org.littletonrobotics.junction.LogFileUtil;
 import org.littletonrobotics.junction.LoggedRobot;
 import org.littletonrobotics.junction.Logger;
@@ -57,6 +59,7 @@ public class Robot extends LoggedRobot {
         Logger.start();
 
         robotContainer = new RobotContainer();
+        // robotContainer.ledsOn();
     }
 
     @Override
@@ -87,7 +90,11 @@ public class Robot extends LoggedRobot {
     }
 
     @Override
-    public void disabledPeriodic() {}
+    public void disabledPeriodic() {
+        // robotContainer.getLEDs().rainbow();
+        // robotContainer.getLEDs().setHSV(0, 255, 128);4
+        robotContainer.getLEDs().rainbow();
+    }
 
     @Override
     public void autonomousInit() {
@@ -110,7 +117,13 @@ public class Robot extends LoggedRobot {
     }
 
     @Override
-    public void teleopPeriodic() {}
+    public void teleopPeriodic() {
+        if (isHubActive()) {
+            robotContainer.getLEDs().setState(LEDs.LEDState.NOPEICE);
+        } else {
+            robotContainer.getLEDs().setState(LEDs.LEDState.SEETARGET);
+        }
+    }
 
     @Override
     public void testInit() {
@@ -134,5 +147,65 @@ public class Robot extends LoggedRobot {
         Logger.recordOutput(
                 "FieldSimulation/PoseErrorDeg",
                 simPose.getRotation().minus(odometryPose.getRotation()).getDegrees());
+    }
+
+    public boolean isHubActive() {
+        Optional<Alliance> alliance = DriverStation.getAlliance();
+        // If we have no alliance, we cannot be enabled, therefore no hub.
+        if (alliance.isEmpty()) {
+            return false;
+        }
+        // Hub is always enabled in autonomous.
+        if (DriverStation.isAutonomousEnabled()) {
+            return true;
+        }
+        // At this point, if we're not teleop enabled, there is no hub.
+        if (!DriverStation.isTeleopEnabled()) {
+            return false;
+        }
+
+        // We're teleop enabled, compute.
+        double matchTime = DriverStation.getMatchTime();
+        String gameData = DriverStation.getGameSpecificMessage();
+        // If we have no game data, we cannot compute, assume hub is active, as its likely early in teleop.
+        if (gameData.isEmpty()) {
+            return true;
+        }
+        boolean redInactiveFirst = false;
+        switch (gameData.charAt(0)) {
+            case 'R' -> redInactiveFirst = true;
+            case 'B' -> redInactiveFirst = false;
+            default -> {
+                // If we have invalid game data, assume hub is active.
+                return true;
+            }
+        }
+
+        // Shift was is active for blue if red won auto, or red if blue won auto.
+        boolean shift1Active =
+                switch (alliance.get()) {
+                    case Red -> !redInactiveFirst;
+                    case Blue -> redInactiveFirst;
+                };
+
+        if (matchTime > 130) {
+            // Transition shift, hub is active.
+            return true;
+        } else if (matchTime > 105) {
+            // Shift 1
+            return shift1Active;
+        } else if (matchTime > 80) {
+            // Shift 2
+            return !shift1Active;
+        } else if (matchTime > 55) {
+            // Shift 3
+            return shift1Active;
+        } else if (matchTime > 30) {
+            // Shift 4
+            return !shift1Active;
+        } else {
+            // End game, hub always active.
+            return true;
+        }
     }
 }

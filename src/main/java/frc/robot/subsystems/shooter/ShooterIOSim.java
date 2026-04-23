@@ -48,6 +48,7 @@ public class ShooterIOSim implements ShooterIO {
         }
 
         inputs.hoodPositionRotations = hoodPositionRotations;
+        inputs.hoodTargetPositionRotations = hoodPositionTargetRotations;
         inputs.hoodVelocityRps = hoodVelocityRps;
         inputs.hoodAppliedVolts = hoodDutyCycle * 12.0;
         inputs.hoodCurrentAmps = 0.0;

@@ -1,5 +1,6 @@
 package frc.robot.commands;
 
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -46,9 +47,15 @@ public class ShuttleShot extends Command {
                 targetY = drive.getPose().getY();
             }
         }
-
-        shooter.runShot(1000, 58);
-        turret.setTargetAngleRadians(Math.toRadians(drive.getRotation().getDegrees()) + Math.toRadians(-90));
+        shooter.runShot(1000, 85);
+        double turretTargetDeg;
+        if (alliance == Alliance.Blue) {
+            turretTargetDeg = drive.getRotation().getDegrees() - 90.0;
+        } else {
+            turretTargetDeg = drive.getRotation().getDegrees() - 270.0;
+        }
+        turretTargetDeg = MathUtil.inputModulus(turretTargetDeg, -180.0, 180.0);
+        turret.setTargetAngleRadians(Math.toRadians(turretTargetDeg) - Math.toRadians(10.0));
     }
 
     @Override

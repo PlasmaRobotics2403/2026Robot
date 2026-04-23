@@ -143,6 +143,14 @@ public final class Constants {
 
         public static final double FLYWHEEL_TEST_MAX_DUTY = 0.50;
         public static final double HOOD_TEST_MAX_DUTY = 0.25;
+
+        public static final double HOOD_STALL_CURRENT_THRESHOLD_AMPS = 1.4;
+        public static final double HOOD_STALL_VELOCITY_THRESHOLD_RPS = 0.4;
+        public static final double HOOD_STALL_MIN_APPLIED_VOLTS = 0.6;
+        public static final double HOOD_STALL_POSITION_ERROR_THRESHOLD_ROTATIONS = 0.3;
+        public static final double HOOD_STALL_HARD_PUSH_VOLTS = 0.8;
+        public static final double HOOD_STALL_DETECTION_TIME_SEC = 0.10;
+        public static final boolean HOOD_STALL_AUTO_STOP_ENABLED = true;
     }
 
     public static final class ClimbConstants {

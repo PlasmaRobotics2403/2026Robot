@@ -160,6 +160,10 @@ public class TestTurretSubsystem extends SubsystemBase {
         setTargetAngleRadians(angle.getRadians());
     }
 
+    public void resetPosition() {
+        motor.setPosition(0);
+    }
+
     /** Sets the turret target angle in radians (post-gearbox). */
     public void setTargetAngleRadians(double angleRad) {
         // targetAngleRad = MathUtil.clamp(angleRad, MIN_ANGLE_RAD, MAX_ANGLE_RAD);

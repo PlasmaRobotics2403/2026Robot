@@ -60,7 +60,7 @@ public class ShootAutoCommand extends Command {
 
             } else {
                 turret.setTargetAngleRadians(Math.toRadians(175));
-                shooter.runShot(600, 56);
+                shooter.runShot(600, 54);
             }
         } else {
             if (drive.getPose().getX() < 8.289) {
@@ -68,7 +68,7 @@ public class ShootAutoCommand extends Command {
                 shooter.runShot(600, 56);
             } else {
                 turret.setTargetAngleRadians(Math.toRadians(18));
-                shooter.runShot(580, 56);
+                shooter.runShot(580, 54);
             }
         }
         // indexer.setSpindexerDutyCycle(ShooterConstants.SPINDEXER_FEED_DUTY);

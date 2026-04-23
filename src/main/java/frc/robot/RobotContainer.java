@@ -39,6 +39,7 @@ import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.ClimbSubsystem;
 import frc.robot.subsystems.IndexerSubsystem;
 import frc.robot.subsystems.IntakeSubsystem;
+import frc.robot.subsystems.LEDs;
 import frc.robot.subsystems.TestTurretSubsystem;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.GyroIO;
@@ -70,6 +71,7 @@ public class RobotContainer {
     private static final String DRIVE_FORWARD_AUTO_FILE = "Drive Forward Auto";
     private static final String SHOOT_ONLY_AUTO_NAME = "Shoot Only";
 
+    public final LEDs leds = new LEDs();
     private final Vision vision;
     private final Drive drive;
     private final Shooter shooter;
@@ -164,10 +166,15 @@ public class RobotContainer {
         autoChooser.addOption("BlueNearSweep Score Auto", buildBlueNearSweepAuto());
         autoChooser.addOption("BlueFarSweep Score Auto", buildBlueFarSweepAuto());
 
-        autoChooser.addOption("Shoot Only Near Blue", buildShootOnlyAutoNearBlue());
-        autoChooser.addOption("Shoot Only Far Blue", buildShootOnlyAutoFarBlue());
-        autoChooser.addOption("Shoot Only Near Red", buildShootOnlyAutoNearRed());
-        autoChooser.addOption("Shoot Only Far Red", buildShootOnlyAutoFarRed());
+        autoChooser.addOption("FastRedNearSweep Score Auto", buildFastRedNearSweepAuto());
+        autoChooser.addOption("FastRedFarSweep Score Auto", buildFastRedFarSweepAuto());
+        autoChooser.addOption("FastBlueNearSweep Score Auto", buildFastBlueNearSweepAuto());
+        autoChooser.addOption("FastBlueFarSweep Score Auto", buildFastBlueFarSweepAuto());
+
+        // autoChooser.addOption("Shoot Only Near Blue", buildShootOnlyAutoNearBlue());
+        // autoChooser.addOption("Shoot Only Far Blue", buildShootOnlyAutoFarBlue());
+        // autoChooser.addOption("Shoot Only Near Red", buildShootOnlyAutoNearRed());
+        // autoChooser.addOption("Shoot Only Far Red", buildShootOnlyAutoFarRed());
         autoChooser.addOption("Drive", buildDriveForwardAuto());
         // autoChooser.addOption("Drive Wheel Radius Characterization",
         // DriveCommands.wheelRadiusCharacterization(drive));
@@ -212,8 +219,7 @@ public class RobotContainer {
 
         NamedCommands.registerCommand(
                 "Shoot",
-                Commands.deadline(new ShootFromDistanceToHubCommandAuto(shooter, indexer, drive, testTurret, 5))
-                        .withName("Shoot"));
+                new ShootFromDistanceToHubCommandAuto(shooter, indexer, drive, testTurret, 5).withName("Shoot"));
 
         NamedCommands.registerCommand(
                 "Stop Shooter",
@@ -332,7 +338,7 @@ public class RobotContainer {
         return Commands.defer(
                         () -> {
                             Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
-                            String autoFile = "Depo Auto";
+                            String autoFile = "Blue Depo Auto";
 
                             PathPlannerAuto auto = new PathPlannerAuto(autoFile);
                             drive.resetOdometry(auto.getStartingPose());
@@ -406,6 +412,70 @@ public class RobotContainer {
                         },
                         java.util.Set.of(drive, intake, shooter, indexer))
                 .withName("Far Sweep Score Auto");
+    }
+
+    private Command buildFastRedFarSweepAuto() {
+        return Commands.defer(
+                        () -> {
+                            Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+                            String autoFile = "Fast Near Sweep Score Auto";
+
+                            PathPlannerAuto auto = new PathPlannerAuto(autoFile);
+                            drive.resetOdometry(auto.getStartingPose());
+                            // Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
+
+                            return auto;
+                        },
+                        java.util.Set.of(drive, intake, shooter, indexer))
+                .withName("FastFar Sweep Score Auto");
+    }
+
+    private Command buildFastRedNearSweepAuto() {
+        return Commands.defer(
+                        () -> {
+                            Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+                            String autoFile = "Fast Far Sweep Score Auto";
+
+                            PathPlannerAuto auto = new PathPlannerAuto(autoFile);
+                            drive.resetOdometry(auto.getStartingPose());
+                            // Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
+
+                            return auto;
+                        },
+                        java.util.Set.of(drive, intake, shooter, indexer))
+                .withName("Fast Near Sweep Score Auto");
+    }
+
+    private Command buildFastBlueFarSweepAuto() {
+        return Commands.defer(
+                        () -> {
+                            Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+                            String autoFile = "Fast Far Sweep Score Auto";
+
+                            PathPlannerAuto auto = new PathPlannerAuto(autoFile);
+                            drive.resetOdometry(auto.getStartingPose());
+                            // Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
+
+                            return auto;
+                        },
+                        java.util.Set.of(drive, intake, shooter, indexer))
+                .withName("Fast Far Sweep Score Auto");
+    }
+
+    private Command buildFastBlueNearSweepAuto() {
+        return Commands.defer(
+                        () -> {
+                            Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+                            String autoFile = "Fast Near Sweep Score Auto";
+
+                            PathPlannerAuto auto = new PathPlannerAuto(autoFile);
+                            drive.resetOdometry(auto.getStartingPose());
+                            // Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
+
+                            return auto;
+                        },
+                        java.util.Set.of(drive, intake, shooter, indexer))
+                .withName("Fast Near Sweep Score Auto");
     }
 
     private Command buildDriveForwardAuto() {
@@ -642,5 +712,13 @@ public class RobotContainer {
         shooter.runFlywheelDutyCycle(0);
         indexer.setSpindexerDutyCycle(0);
         indexer.setShooterIndexerDutyCycle(0);
+    }
+
+    public LEDs getLEDs() {
+        return leds;
+    }
+
+    public void ledsOn() {
+        leds.setRGB(255, 255, 255);
     }
 }
