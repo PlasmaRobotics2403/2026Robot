@@ -64,6 +64,7 @@ public class Robot extends LoggedRobot {
 
     @Override
     public void robotPeriodic() {
+        robotContainer.getLEDs().periodic();
         Threads.setCurrentThreadPriority(true, 99);
 
         CommandScheduler.getInstance().run();
@@ -93,7 +94,8 @@ public class Robot extends LoggedRobot {
     public void disabledPeriodic() {
         // robotContainer.getLEDs().rainbow();
         // robotContainer.getLEDs().setHSV(0, 255, 128);4
-        robotContainer.getLEDs().rainbow();
+        // robotContainer.getLEDs().rainbow();
+        robotContainer.getLEDs().setState(LEDs.LEDState.BOGO);
     }
 
     @Override

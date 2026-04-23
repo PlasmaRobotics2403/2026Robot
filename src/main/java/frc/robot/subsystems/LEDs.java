@@ -3,6 +3,7 @@ package frc.robot.subsystems;
 import edu.wpi.first.wpilibj.AddressableLED;
 import edu.wpi.first.wpilibj.AddressableLEDBuffer;
 import edu.wpi.first.wpilibj.LEDPattern;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import java.util.Random;
 
 public class LEDs {
@@ -102,30 +103,32 @@ public class LEDs {
         LED.setData(LEDBuffer);
     }
 
-    public void bogoSort() {
-        boolean isSorted;
-        do {
-            isSorted = true;
-            for (int i = 0; i < bogoArray.length - 1; i++) {
-                if (bogoArray[i].sorting > bogoArray[i + 1].sorting) {
-                    isSorted = false;
-                    break;
-                }
-            }
-
-            if (!isSorted) {
-                shuffleArray(bogoArray);
-            }
-        } while (!isSorted);
-
-        // Apply sorted array to LEDs
-        for (int i = 0; i < bogoArray.length; i++) {
-            setHSV(i * 2, bogoArray[i].h, bogoArray[i].s, bogoArray[i].v);
-
-            if (i < bogoArray.length - 1) {
-                setHSV(i * 2 + 1, bogoArray[i].h, bogoArray[i].s, bogoArray[i].v);
+    private boolean isBogoArraySorted() {
+        for (int i = 0; i < bogoArray.length - 1; i++) {
+            if (bogoArray[i].sorting > bogoArray[i + 1].sorting) {
+                return false;
             }
         }
+        return true;
+    }
+
+    private void applyBogoArrayToStrip() {
+        // Fill the whole strip so the effect is obvious
+        for (int i = 0; i < LEDBuffer.getLength(); i++) {
+            BogoColor color = bogoArray[i % bogoArray.length];
+            LEDBuffer.setHSV(i, color.h, color.s, color.v);
+        }
+        LED.setData(LEDBuffer);
+    }
+
+    public void bogoSort() {
+        // Non-blocking: one shuffle attempt per call
+        if (!isBogoArraySorted()) {
+            shuffleArray(bogoArray);
+        }
+
+        // Always show current state of the array
+        applyBogoArrayToStrip();
     }
 
     public void workingBogoSort() {
@@ -177,6 +180,7 @@ public class LEDs {
     }
 
     public void periodic() {
+        SmartDashboard.putString("LEDState", currentState.toString());
         switch (currentState) {
             case BOGO:
                 bogoCycle++;
@@ -197,9 +201,10 @@ public class LEDs {
                 LED.setData(LEDBuffer);
                 break;
             case NOPEICE:
-                LEDPattern red = LEDPattern.solid(edu.wpi.first.wpilibj.util.Color.kPurple);
+                LEDPattern red = LEDPattern.solid(edu.wpi.first.wpilibj.util.Color.kRed);
                 red.applyTo(LEDBuffer);
                 LED.setData(LEDBuffer);
+                // setHSV(0, 128, 255);
                 break;
         }
     }
