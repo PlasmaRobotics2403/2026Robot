@@ -56,6 +56,7 @@ public class LEDs {
         ALLIGNED,
         HASPEICE,
         SEETARGET,
+        OFF,
         NOPEICE;
     }
 
@@ -64,6 +65,11 @@ public class LEDs {
     public LEDs() {
         LED = new AddressableLED(1);
         LEDBuffer = new AddressableLEDBuffer(720);
+
+        // Explicit channel order for strips that show wrong colors.
+        // If green/red are still swapped, try kRGB, kBRG, or kRBG.
+        LED.setColorOrder(AddressableLED.ColorOrder.kRGB);
+
         LED.setBitTiming(300, 10000, 1200, 1300);
         LED.setLength(LEDBuffer.getLength());
 
@@ -200,8 +206,11 @@ public class LEDs {
                 purple.applyTo(LEDBuffer);
                 LED.setData(LEDBuffer);
                 break;
+            case OFF:
+                setRGB(0, 0, 0);
+                break;
             case NOPEICE:
-                LEDPattern red = LEDPattern.solid(edu.wpi.first.wpilibj.util.Color.kRed);
+                LEDPattern red = LEDPattern.solid(edu.wpi.first.wpilibj.util.Color.kPurple);
                 red.applyTo(LEDBuffer);
                 LED.setData(LEDBuffer);
                 // setHSV(0, 128, 255);

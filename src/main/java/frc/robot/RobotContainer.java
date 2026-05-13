@@ -23,9 +23,10 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.commands.DriveCommands;
-import frc.robot.commands.IntakeOutCommand;
+import frc.robot.commands.IntakeBallsCommand;
 import frc.robot.commands.IntakePulseCommand;
 import frc.robot.commands.IntakeStowCommand;
+import frc.robot.commands.OutakeBallsCommand;
 import frc.robot.commands.RunIndexterDutyCycle;
 import frc.robot.commands.ShootAutoCommand;
 import frc.robot.commands.ShootCommand;
@@ -192,7 +193,7 @@ public class RobotContainer {
     }
 
     private void registerNamedCommands() {
-        NamedCommands.registerCommand("Deploy Intake", new IntakeOutCommand(intake).withName("Deploy Intake"));
+        NamedCommands.registerCommand("Deploy Intake", new IntakeBallsCommand(intake).withName("Deploy Intake"));
 
         NamedCommands.registerCommand("Stow Intake", new IntakeStowCommand(intake).withName("Stow Intake"));
         NamedCommands.registerCommand("Pulse Intake", new IntakePulseCommand(intake).withName("Pulse Intake"));
@@ -543,14 +544,7 @@ public class RobotContainer {
         navigator.b().onTrue(Commands.runOnce(() -> climb.setDutyCycle(0.4)));
         navigator.a().onTrue(Commands.runOnce(() -> climb.setDutyCycle(-0.4)));
 
-        controller
-                .povUp()
-                .onTrue(Commands.runOnce(
-                        () -> climb.setTargetPositionRotations(Constants.ClimbConstants.TARGET_POSITION_ROTATIONS)));
-        controller
-                .povDown()
-                .onTrue(Commands.runOnce(
-                        () -> climb.setTargetPositionRotations(Constants.ClimbConstants.HOME_POSITION_ROTATIONS)));
+        controller.povDown().whileTrue(new OutakeBallsCommand(intake));
 
         controller
                 .start()
@@ -564,7 +558,7 @@ public class RobotContainer {
                         () -> -controller.getLeftY() * 0.65,
                         () -> -controller.getLeftX() * 0.65,
                         () -> -controller.getRightX() * 0.65));
-        controller.rightTrigger().whileTrue(new IntakeOutCommand(intake));
+        controller.rightTrigger().whileTrue(new IntakeBallsCommand(intake));
 
         controller.a().whileTrue(new IntakePulseCommand(intake));
         // controller

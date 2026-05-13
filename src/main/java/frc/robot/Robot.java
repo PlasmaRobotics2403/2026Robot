@@ -4,6 +4,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.Threads;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
@@ -19,6 +20,8 @@ import org.littletonrobotics.junction.wpilog.WPILOGWriter;
 public class Robot extends LoggedRobot {
     private Command autonomousCommand;
     private RobotContainer robotContainer;
+    private static final double HUB_WARNING_SECONDS = 3.0;
+    private static final double HUB_BLINK_INTERVAL_SECONDS = 0.5;
 
     public Robot() {
         Logger.recordMetadata("ProjectName", BuildConstants.MAVEN_NAME);
@@ -101,6 +104,7 @@ public class Robot extends LoggedRobot {
     @Override
     public void autonomousInit() {
         autonomousCommand = robotContainer.getAutonomousCommand();
+        robotContainer.getLEDs().setState(LEDs.LEDState.NOPEICE);
 
         if (autonomousCommand != null) {
             CommandScheduler.getInstance().schedule(autonomousCommand);
@@ -120,7 +124,14 @@ public class Robot extends LoggedRobot {
 
     @Override
     public void teleopPeriodic() {
-        if (isHubActive()) {
+        if (isHubWarningWindow()) {
+            boolean purpleOn = ((int) (Timer.getFPGATimestamp() / HUB_BLINK_INTERVAL_SECONDS)) % 2 == 0;
+            if (purpleOn) {
+                robotContainer.getLEDs().setState(LEDs.LEDState.NOPEICE);
+            } else {
+                robotContainer.getLEDs().setState(LEDs.LEDState.OFF);
+            }
+        } else if (isHubActive()) {
             robotContainer.getLEDs().setState(LEDs.LEDState.NOPEICE);
         } else {
             robotContainer.getLEDs().setState(LEDs.LEDState.SEETARGET);
@@ -151,63 +162,121 @@ public class Robot extends LoggedRobot {
                 simPose.getRotation().minus(odometryPose.getRotation()).getDegrees());
     }
 
-    public boolean isHubActive() {
-        Optional<Alliance> alliance = DriverStation.getAlliance();
-        // If we have no alliance, we cannot be enabled, therefore no hub.
-        if (alliance.isEmpty()) {
-            return false;
-        }
-        // Hub is always enabled in autonomous.
-        if (DriverStation.isAutonomousEnabled()) {
+    private boolean isHubActiveAtTime(double matchTime, boolean shift1Active) {
+        if (matchTime > 130) {
+            return true;
+        } else if (matchTime > 105) {
+            return shift1Active;
+        } else if (matchTime > 80) {
+            return !shift1Active;
+        } else if (matchTime > 55) {
+            return shift1Active;
+        } else if (matchTime > 30) {
+            return !shift1Active;
+        } else {
             return true;
         }
-        // At this point, if we're not teleop enabled, there is no hub.
-        if (!DriverStation.isTeleopEnabled()) {
-            return false;
+    }
+
+    private double getTimeUntilHubActiveSeconds() {
+        Optional<Alliance> alliance = DriverStation.getAlliance();
+        if (alliance.isEmpty() || !DriverStation.isTeleopEnabled() || DriverStation.isAutonomousEnabled()) {
+            return -1.0;
         }
 
-        // We're teleop enabled, compute.
-        double matchTime = DriverStation.getMatchTime();
-        String gameData = DriverStation.getGameSpecificMessage();
-        // If we have no game data, we cannot compute, assume hub is active, as its likely early in teleop.
-        if (gameData.isEmpty()) {
-            return true;
-        }
-        boolean redInactiveFirst = false;
-        switch (gameData.charAt(0)) {
-            case 'R' -> redInactiveFirst = true;
-            case 'B' -> redInactiveFirst = false;
-            default -> {
-                // If we have invalid game data, assume hub is active.
-                return true;
+        boolean redInactiveFirst;
+        if (!DriverStation.isFMSAttached()) {
+            // Practice mode behavior requested
+            redInactiveFirst = true;
+        } else {
+            String gameData = DriverStation.getGameSpecificMessage();
+            if (gameData.isEmpty()) {
+                return -1.0;
+            }
+            switch (gameData.charAt(0)) {
+                case 'R' -> redInactiveFirst = true;
+                case 'B' -> redInactiveFirst = false;
+                default -> {
+                    return -1.0;
+                }
             }
         }
 
-        // Shift was is active for blue if red won auto, or red if blue won auto.
+        double matchTime = DriverStation.getMatchTime();
+        if (matchTime < 0) {
+            return -1.0;
+        }
+
         boolean shift1Active =
                 switch (alliance.get()) {
                     case Red -> !redInactiveFirst;
                     case Blue -> redInactiveFirst;
                 };
 
-        if (matchTime > 130) {
-            // Transition shift, hub is active.
-            return true;
-        } else if (matchTime > 105) {
-            // Shift 1
-            return shift1Active;
+        if (isHubActiveAtTime(matchTime, shift1Active)) {
+            return -1.0;
+        }
+
+        if (matchTime > 105) {
+            return matchTime - 105;
         } else if (matchTime > 80) {
-            // Shift 2
-            return !shift1Active;
+            return matchTime - 80;
         } else if (matchTime > 55) {
-            // Shift 3
-            return shift1Active;
+            return matchTime - 55;
         } else if (matchTime > 30) {
-            // Shift 4
-            return !shift1Active;
-        } else {
-            // End game, hub always active.
+            return matchTime - 30;
+        }
+
+        return -1.0;
+    }
+
+    private boolean isHubWarningWindow() {
+        double timeUntilActive = getTimeUntilHubActiveSeconds();
+        return timeUntilActive >= 0.0 && timeUntilActive <= HUB_WARNING_SECONDS;
+    }
+
+    public boolean isHubActive() {
+        Optional<Alliance> alliance = DriverStation.getAlliance();
+        if (alliance.isEmpty()) {
+            return false;
+        }
+
+        if (DriverStation.isAutonomousEnabled()) {
             return true;
         }
+
+        if (!DriverStation.isTeleopEnabled()) {
+            return false;
+        }
+
+        boolean redInactiveFirst;
+        if (!DriverStation.isFMSAttached()) {
+            redInactiveFirst = true;
+        } else {
+            String gameData = DriverStation.getGameSpecificMessage();
+            if (gameData.isEmpty()) {
+                return false;
+            }
+            switch (gameData.charAt(0)) {
+                case 'R' -> redInactiveFirst = true;
+                case 'B' -> redInactiveFirst = false;
+                default -> {
+                    return false;
+                }
+            }
+        }
+
+        double matchTime = DriverStation.getMatchTime();
+        if (matchTime < 0) {
+            return false;
+        }
+
+        boolean shift1Active =
+                switch (alliance.get()) {
+                    case Red -> !redInactiveFirst;
+                    case Blue -> redInactiveFirst;
+                };
+
+        return isHubActiveAtTime(matchTime, shift1Active);
     }
 }

@@ -37,7 +37,7 @@ public class IntakePulseCommand extends Command {
             intakeSubsystem.setPivotTargetDegrees(IntakeConstants.STOW_DEG);
         }
 
-        if (Math.toDegrees(intakeSubsystem.getPivotPositionRadians()) > 10) {
+        if (Math.toDegrees(intakeSubsystem.getPivotPositionRadians()) > 40) {
             intakeSubsystem.setRollerPercent(0.25);
         } else {
             intakeSubsystem.setRollerPercent(0);
