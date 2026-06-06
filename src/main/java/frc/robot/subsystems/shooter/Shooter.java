@@ -2,6 +2,7 @@ package frc.robot.subsystems.shooter;
 
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -24,6 +25,7 @@ public class Shooter extends SubsystemBase {
     private final ShooterIO io;
     private final ShooterIOInputsAutoLogged inputs = new ShooterIOInputsAutoLogged();
 
+    double accumulatedTime = 0.0;
     private double rpsOffset = 1;
     private ControlMode controlMode = ControlMode.IDLE;
     private double flywheelSetpointRps = 0.0;
@@ -35,6 +37,12 @@ public class Shooter extends SubsystemBase {
     private double hoodPidP = ShooterConstants.HOOD_KP;
     private double hoodPidI = ShooterConstants.HOOD_KI;
     private double hoodPidD = ShooterConstants.HOOD_KD;
+    private double hoodDutySetpoint = 0.0;
+    private double hoodStallAccumulatedTimeSec = 0.0;
+    private boolean hoodStallDetected = false;
+    private boolean hoodStallLatched = false;
+    private boolean hoodResetPendingAfterStall = false;
+    private double lastPeriodicTimestampSec = 0.0;
     private boolean dashboardTargetsResetAfterBoot = false;
     private final DoubleSupplier tuningDistanceSupplier;
 
@@ -89,6 +97,11 @@ public class Shooter extends SubsystemBase {
         SmartDashboard.putNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "kP", hoodPidP);
         SmartDashboard.putNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "kI", hoodPidI);
         SmartDashboard.putNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "kD", hoodPidD);
+        SmartDashboard.putNumber("Shooter/Shuttle Near Angle Offset", 10);
+        SmartDashboard.putNumber("Shooter/Shuttle Far Angle Offset", 6);
+        SmartDashboard.putNumber("Shooter/Shuttle Near Speed", 50);
+        SmartDashboard.putNumber("Shooter/Shuttle Far Speed", 85);
+
         SmartDashboard.putNumber("Shooter/rpsOffset", rpsOffset);
         SmartDashboard.putNumber(
                 ShooterConstants.FLYWHEEL_TARGET_RPS_DASHBOARD_KEY,
@@ -117,12 +130,14 @@ public class Shooter extends SubsystemBase {
 
     @Override
     public void periodic() {
-        if (flywheelSetpointRps == 0.0) {
-            resetHoodMotorPosition();
-        }
+        double nowSec = Timer.getFPGATimestamp();
+        double dtSec = lastPeriodicTimestampSec > 0.0 ? nowSec - lastPeriodicTimestampSec : 0.02;
+        lastPeriodicTimestampSec = nowSec;
+
         SmartDashboard.putNumber("Shooter/rpsOffset", rpsOffset);
         forceDashboardTargetsResetAfterBoot();
         io.updateInputs(inputs);
+        updateHoodStallDetection(dtSec);
         Logger.processInputs("Shooter", inputs);
         updateDashboardTuning();
 
@@ -148,6 +163,14 @@ public class Shooter extends SubsystemBase {
         Logger.recordOutput("Shooter/Hood/PID/kI", hoodPidI);
         Logger.recordOutput("Shooter/Hood/PID/kD", hoodPidD);
         Logger.recordOutput("Shooter/Hood/CurrentAngleDeg", getHoodAngleDegrees());
+        Logger.recordOutput("Shooter/Hood/TargetRotationsFromIO", inputs.hoodTargetPositionRotations);
+        Logger.recordOutput("Shooter/Hood/CurrentAmps", inputs.hoodCurrentAmps);
+        Logger.recordOutput("Shooter/Hood/AppliedVolts", inputs.hoodAppliedVolts);
+        Logger.recordOutput("Shooter/Hood/AbsCurrentAmps", Math.abs(inputs.hoodCurrentAmps));
+        Logger.recordOutput("Shooter/Hood/AbsAppliedVolts", Math.abs(inputs.hoodAppliedVolts));
+        Logger.recordOutput("Shooter/Hood/StallDetected", hoodStallDetected);
+        Logger.recordOutput("Shooter/Hood/StallLatched", hoodStallLatched);
+        Logger.recordOutput("Shooter/Hood/StallAccumulatedTimeSec", hoodStallAccumulatedTimeSec);
         SmartDashboard.putNumber(ShooterConstants.FLYWHEEL_PID_DASHBOARD_PREFIX + "Active kP", flywheelPidP);
         SmartDashboard.putNumber(ShooterConstants.FLYWHEEL_PID_DASHBOARD_PREFIX + "Active kI", flywheelPidI);
         SmartDashboard.putNumber(ShooterConstants.FLYWHEEL_PID_DASHBOARD_PREFIX + "Active kD", flywheelPidD);
@@ -160,10 +183,83 @@ public class Shooter extends SubsystemBase {
         SmartDashboard.putNumber("Shooter/Flywheel/CurrentRps", inputs.flywheelVelocityRps);
         SmartDashboard.putNumber("Shooter/Flywheel/ActiveTargetRps", flywheelSetpointRps);
         SmartDashboard.putNumber("Shooter/Hood/CurrentRotations", inputs.hoodPositionRotations);
+        SmartDashboard.putNumber("Shooter/Hood/TargetRotations", inputs.hoodTargetPositionRotations);
         SmartDashboard.putNumber("Shooter/Hood/CurrentDeg", getHoodAngleDegrees());
+        SmartDashboard.putNumber("Shooter/Hood/CurrentAmps", inputs.hoodCurrentAmps);
+        SmartDashboard.putNumber("Shooter/Hood/AppliedVolts", inputs.hoodAppliedVolts);
+        SmartDashboard.putNumber("Shooter/Hood/RPS", inputs.hoodVelocityRps);
+        SmartDashboard.putNumber("Shooter/Hood/AbsCurrentAmps", Math.abs(inputs.hoodCurrentAmps));
+        SmartDashboard.putNumber("Shooter/Hood/AbsAppliedVolts", Math.abs(inputs.hoodAppliedVolts));
+        SmartDashboard.putBoolean("Shooter/Hood/StallDetected", hoodStallDetected);
+        SmartDashboard.putBoolean("Shooter/Hood/StallLatched", hoodStallLatched);
         // SmartDashboard.putNumber("Turret/TagDistance", tuningDistanceSupplier.getAsDouble());
-        SmartDashboard.putNumber("", 0);
+        // SmartDashboard.putNumber("", 0);
         updateTuningDashboard();
+    }
+
+    private void updateHoodStallDetection(double dtSec) {
+        boolean hoodControlActive = controlMode == ControlMode.HOOD_DUTY || controlMode == ControlMode.HOOD_POSITION;
+        boolean hasMeaningfulCommand =
+                Math.abs(inputs.hoodAppliedVolts) >= ShooterConstants.HOOD_STALL_MIN_APPLIED_VOLTS;
+        double hoodPositionErrorRotations = Math.abs(inputs.hoodTargetPositionRotations - inputs.hoodPositionRotations);
+        double hoodClosedLoopErrorRotations = Math.abs(inputs.hoodClosedLoopErrorRotations);
+
+        if (controlMode == ControlMode.HOOD_POSITION) {
+            hasMeaningfulCommand = hasMeaningfulCommand
+                    && (hoodPositionErrorRotations >= ShooterConstants.HOOD_STALL_POSITION_ERROR_THRESHOLD_ROTATIONS
+                            || hoodClosedLoopErrorRotations
+                                    >= ShooterConstants.HOOD_STALL_POSITION_ERROR_THRESHOLD_ROTATIONS
+                            || Math.abs(inputs.hoodAppliedVolts) >= ShooterConstants.HOOD_STALL_HARD_PUSH_VOLTS);
+        }
+
+        boolean lowVelocity = Math.abs(inputs.hoodVelocityRps) <= ShooterConstants.HOOD_STALL_VELOCITY_THRESHOLD_RPS;
+        boolean highCurrent = Math.abs(inputs.hoodCurrentAmps) >= ShooterConstants.HOOD_STALL_CURRENT_THRESHOLD_AMPS;
+        boolean lowCurrent = Math.abs(inputs.hoodCurrentAmps) >= 0.9;
+        boolean belowPos =
+                inputs.hoodPositionRotations < ShooterConstants.HOOD_STALL_POSITION_ERROR_THRESHOLD_ROTATIONS;
+        boolean stallCondition = (lowVelocity && highCurrent) || (lowVelocity && lowCurrent && belowPos);
+
+        if (stallCondition) {
+            hoodStallAccumulatedTimeSec += Math.max(0.0, dtSec);
+            if (hoodStallAccumulatedTimeSec >= ShooterConstants.HOOD_STALL_DETECTION_TIME_SEC) {
+                hoodStallDetected = true;
+                if (!hoodStallLatched) {
+                    hoodStallLatched = true;
+                    hoodResetPendingAfterStall = true;
+                    DriverStation.reportWarning(
+                            "Shooter hood stall detected. Hood motor stopped for protection.", false);
+                }
+            }
+        } else {
+            hoodStallAccumulatedTimeSec = 0.0;
+            hoodStallDetected = false;
+        }
+
+        hoodStallDetected = stallCondition;
+        if (stallCondition) {
+            accumulatedTime += dtSec;
+        } else {
+            accumulatedTime = 0.0;
+        }
+
+        boolean timedStall = accumulatedTime >= ShooterConstants.HOOD_STALL_DETECTION_TIME_SEC;
+        if (timedStall && ShooterConstants.HOOD_STALL_AUTO_STOP_ENABLED) {
+            resetHoodMotorPosition();
+        }
+    }
+
+    public boolean isHoodStalled() {
+        return hoodStallDetected;
+    }
+
+    public boolean isHoodStallLatched() {
+        return hoodStallLatched;
+    }
+
+    public void clearHoodStallLatch() {
+        hoodStallAccumulatedTimeSec = 0.0;
+        hoodStallDetected = false;
+        hoodStallLatched = false;
     }
 
     private void forceDashboardTargetsResetAfterBoot() {
@@ -269,15 +365,24 @@ public class Shooter extends SubsystemBase {
     }
 
     public void runHoodDutyCycle(double output) {
-        controlMode = ControlMode.HOOD_DUTY;
         double clamped =
                 MathUtil.clamp(output, -ShooterConstants.HOOD_TEST_MAX_DUTY, ShooterConstants.HOOD_TEST_MAX_DUTY);
+        if (controlMode != ControlMode.HOOD_DUTY || Math.abs(clamped - hoodDutySetpoint) > 1e-3) {
+            clearHoodStallLatch();
+        }
+        controlMode = ControlMode.HOOD_DUTY;
+        hoodDutySetpoint = clamped;
         io.setHoodDutyCycle(clamped);
     }
 
     public void setHoodPositionRotations(double rotations) {
+        double clampedTarget = clampHoodRotations(rotations);
+        if (controlMode != ControlMode.HOOD_POSITION || Math.abs(clampedTarget - hoodSetpointRotations) > 0.01) {
+            clearHoodStallLatch();
+        }
         controlMode = ControlMode.HOOD_POSITION;
-        hoodSetpointRotations = clampHoodRotations(rotations);
+        hoodSetpointRotations = clampedTarget;
+        hoodDutySetpoint = 0.0;
         io.setHoodPositionRotations(hoodSetpointRotations);
     }
 
@@ -295,7 +400,7 @@ public class Shooter extends SubsystemBase {
     }
 
     public void runShotFromDistanceToHub(Translation2d target) {
-        runShot(evaluateHoodDegreesHub(target), evaluateFlywheelRpsHub(target));
+        runShot(evaluateHoodDegreesHub(target), evaluateFlywheelRpsHub(target) - 1.5);
     }
 
     public void runShuttleShot(Translation2d target) {
@@ -313,6 +418,7 @@ public class Shooter extends SubsystemBase {
         if (controlMode == ControlMode.HOOD_DUTY || controlMode == ControlMode.HOOD_POSITION) {
             controlMode = ControlMode.IDLE;
         }
+        hoodDutySetpoint = 0.0;
         hoodSetpointRotations = inputs.hoodPositionRotations;
         io.stopHood();
     }
@@ -320,6 +426,7 @@ public class Shooter extends SubsystemBase {
     public void stopAll() {
         controlMode = ControlMode.IDLE;
         flywheelSetpointRps = 0.0;
+        hoodDutySetpoint = 0.0;
         hoodSetpointRotations = inputs.hoodPositionRotations;
         io.stopAll();
     }
@@ -359,7 +466,6 @@ public class Shooter extends SubsystemBase {
     }
 
     public double evaluateHoodDegrees() {
-        double distance = tuningDistanceSupplier.getAsDouble();
         return 0;
         // return 3.931 * Math.pow(10, -15) * Math.pow(distance, 49.95);
         // return ShooterConstants.HOOD_DISTANCE_SLOPE_DEG_PER_METER * distance
@@ -382,7 +488,7 @@ public class Shooter extends SubsystemBase {
     public double evaluateFlywheelRpsHub(Translation2d target) {
         double distance = drive.distanceToTargetMeters(target);
         if (distance <= 2.5) {
-            return 49;
+            return 48;
         }
 
         return 0.0441314 * Math.pow(distance, 2) + 3.44913 * distance + 40.60355 + rpsOffset;
@@ -390,6 +496,9 @@ public class Shooter extends SubsystemBase {
 
     public double evaluateHoodDegreesHub(Translation2d target) {
         double distance = drive.distanceToTargetMeters(target);
+        if (distance <= 2.5) {
+            return 0;
+        }
         return 217.3913 * distance - 326.08696;
     }
 
@@ -402,8 +511,7 @@ public class Shooter extends SubsystemBase {
     }
 
     public void resetHoodMotorPosition() {
-        hoodSetpointRotations = hoodDegreesToMotorRotations(ShooterConstants.HOOD_ZERO_ANGLE_DEGREES);
-        io.setHoodPositionRotations(hoodSetpointRotations);
+        io.resetHoodPosition(0);
         controlMode = ControlMode.HOOD_POSITION;
     }
 }

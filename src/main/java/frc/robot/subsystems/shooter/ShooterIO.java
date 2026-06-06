@@ -18,6 +18,7 @@ public interface ShooterIO {
 
         public boolean hoodConnected = false;
         public double hoodPositionRotations = 0.0;
+        public double hoodTargetPositionRotations = 0.0;
         public double hoodVelocityRps = 0.0;
         public double hoodAppliedVolts = 0.0;
         public double hoodCurrentAmps = 0.0;
@@ -34,6 +35,8 @@ public interface ShooterIO {
     public default void setHoodDutyCycle(double output) {}
 
     public default void setHoodPositionRotations(double rotations) {}
+
+    public default void resetHoodPosition(double rotations) {}
 
     public default void setFlywheelPid(double kP, double kI, double kD, double kV) {}
 

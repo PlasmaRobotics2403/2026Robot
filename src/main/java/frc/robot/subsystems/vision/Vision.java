@@ -181,7 +181,13 @@ public class Vision extends SubsystemBase {
             }
 
             for (var observation : inputs[cameraIndex].poseObservations) {
-                boolean rejectPose = false;
+                boolean rejectPose = observation.tagCount() == 0
+                        || (observation.tagCount() == 1 && observation.ambiguity() > VisionConstants.maxAmbiguity)
+                        || Math.abs(observation.pose().getZ()) > VisionConstants.maxZError
+                        || observation.pose().getX() < 0.0
+                        || observation.pose().getX() > aprilTagLayout.getFieldLength()
+                        || observation.pose().getY() < 0.0
+                        || observation.pose().getY() > aprilTagLayout.getFieldWidth();
 
                 robotPoses.add(observation.pose());
                 if (rejectPose) {

@@ -16,17 +16,8 @@ public final class Constants {
     public static final double redHubX = 11.893; // meters
     public static final double redHubY = 4; // meters
 
-    public static final double blueFarShuttleX = 3.3; // meters
-    public static final double blueFarShuttleY = 7.2; // meters
-
-    public static final double blueNearShuttleX = 3.3; // meters
-    public static final double blueNearShuttleY = 2.7; // meters
-
-    public static final double redFarShuttleX = 13.4; // meters
-    public static final double redFarShuttleY = 5.2; // meters
-
-    public static final double redNearShuttleX = 13.4; // meters
-    public static final double redNearShuttleY = 4; // meters
+    public static final double blueShuttleX = 2.6; // meters
+    public static final double redShuttleX = 13.8; // meters
 
     public static class RobotDevices {
         public static final class IntakeConstants {
@@ -47,7 +38,7 @@ public final class Constants {
     public static final class TurretConstants {
         private TurretConstants() {}
 
-        public static final double kP = 1.5;
+        public static final double kP = 1;
         public static final double kI = 0.0;
         public static final double kD = 0.0;
         public static final double kS = 0.0;
@@ -152,6 +143,14 @@ public final class Constants {
 
         public static final double FLYWHEEL_TEST_MAX_DUTY = 0.50;
         public static final double HOOD_TEST_MAX_DUTY = 0.25;
+
+        public static final double HOOD_STALL_CURRENT_THRESHOLD_AMPS = 1.4;
+        public static final double HOOD_STALL_VELOCITY_THRESHOLD_RPS = 0.4;
+        public static final double HOOD_STALL_MIN_APPLIED_VOLTS = 0.6;
+        public static final double HOOD_STALL_POSITION_ERROR_THRESHOLD_ROTATIONS = 0.3;
+        public static final double HOOD_STALL_HARD_PUSH_VOLTS = 0.8;
+        public static final double HOOD_STALL_DETECTION_TIME_SEC = 0.10;
+        public static final boolean HOOD_STALL_AUTO_STOP_ENABLED = true;
     }
 
     public static final class ClimbConstants {

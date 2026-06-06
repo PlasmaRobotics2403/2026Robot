@@ -77,6 +77,10 @@ public class TestTurretSubsystem extends SubsystemBase {
         config.MotionMagic.MotionMagicAcceleration = TurretConstants.kAccelerationRpsPerSec;
         config.MotionMagic.MotionMagicJerk = TurretConstants.kJerkRpsPerSec2;
 
+        config.OpenLoopRamps.DutyCycleOpenLoopRampPeriod = 0.25;
+        config.OpenLoopRamps.VoltageOpenLoopRampPeriod = 0.25;
+        config.ClosedLoopRamps.VoltageClosedLoopRampPeriod = 0.15;
+
         motor.getConfigurator().apply(config);
         motor.setPosition(0.0);
 
@@ -154,6 +158,10 @@ public class TestTurretSubsystem extends SubsystemBase {
 
     public void setTargetAngle(Rotation2d angle) {
         setTargetAngleRadians(angle.getRadians());
+    }
+
+    public void resetPosition() {
+        motor.setPosition(0);
     }
 
     /** Sets the turret target angle in radians (post-gearbox). */

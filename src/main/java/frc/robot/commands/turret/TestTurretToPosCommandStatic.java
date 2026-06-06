@@ -1,4 +1,4 @@
-package frc.robot.commands;
+package frc.robot.commands.turret;
 
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj2.command.Command;

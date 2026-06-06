@@ -37,6 +37,7 @@ public class ShooterIOTalonFX implements ShooterIO {
     private final DutyCycleOut hoodDutyRequest = new DutyCycleOut(0.0);
     private final PositionVoltage hoodPositionRequest = new PositionVoltage(0.0);
     private final NeutralOut neutralRequest = new NeutralOut();
+    private double hoodTargetPositionRotations = 0.0;
 
     private final StatusSignal<AngularVelocity> flywheelLeaderVelocity;
     private final StatusSignal<Voltage> flywheelLeaderAppliedVolts;
@@ -75,6 +76,10 @@ public class ShooterIOTalonFX implements ShooterIO {
         flywheelConfig.CurrentLimits.SupplyCurrentLimit = ShooterConstants.FLYWHEEL_SUPPLY_CURRENT_LIMIT;
         flywheelConfig.CurrentLimits.SupplyCurrentLimitEnable = true;
 
+        flywheelConfig.OpenLoopRamps.DutyCycleOpenLoopRampPeriod = 0.25;
+        flywheelConfig.OpenLoopRamps.VoltageOpenLoopRampPeriod = 0.25;
+        flywheelConfig.ClosedLoopRamps.VoltageClosedLoopRampPeriod = 0.15;
+
         flywheelConfig.Slot0 = new Slot0Configs()
                 .withKP(ShooterConstants.FLYWHEEL_KP)
                 .withKI(ShooterConstants.FLYWHEEL_KI)
@@ -111,6 +116,7 @@ public class ShooterIOTalonFX implements ShooterIO {
                 5,
                 () -> hoodMotor.setPosition(
                         Shooter.hoodDegreesToMotorRotations(ShooterConstants.HOOD_ZERO_ANGLE_DEGREES), 0.25));
+        hoodTargetPositionRotations = Shooter.hoodDegreesToMotorRotations(ShooterConstants.HOOD_ZERO_ANGLE_DEGREES);
 
         flywheelLeaderVelocity = flywheelLeaderMotor.getVelocity();
         flywheelLeaderAppliedVolts = flywheelLeaderMotor.getMotorVoltage();
@@ -187,6 +193,7 @@ public class ShooterIOTalonFX implements ShooterIO {
 
         inputs.hoodConnected = hoodConnectedDebounce.calculate(hoodStatus.isOK());
         inputs.hoodPositionRotations = hoodPosition.getValueAsDouble();
+        inputs.hoodTargetPositionRotations = hoodTargetPositionRotations;
         inputs.hoodVelocityRps = hoodVelocity.getValueAsDouble();
         inputs.hoodAppliedVolts = hoodAppliedVolts.getValueAsDouble();
         inputs.hoodCurrentAmps = hoodSupplyCurrent.getValueAsDouble();
@@ -232,12 +239,20 @@ public class ShooterIOTalonFX implements ShooterIO {
 
     @Override
     public void setHoodDutyCycle(double output) {
+        hoodTargetPositionRotations = hoodPosition.getValueAsDouble();
         hoodMotor.setControl(hoodDutyRequest.withOutput(output));
     }
 
     @Override
     public void setHoodPositionRotations(double rotations) {
+        hoodTargetPositionRotations = rotations;
         hoodMotor.setControl(hoodPositionRequest.withPosition(rotations));
+    }
+
+    @Override
+    public void resetHoodPosition(double rotations) {
+        hoodTargetPositionRotations = rotations;
+        hoodMotor.setPosition(0);
     }
 
     @Override
@@ -248,6 +263,7 @@ public class ShooterIOTalonFX implements ShooterIO {
 
     @Override
     public void stopHood() {
+        hoodTargetPositionRotations = hoodPosition.getValueAsDouble();
         hoodMotor.setControl(neutralRequest);
     }
 }

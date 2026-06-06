@@ -1,4 +1,4 @@
-package frc.robot.commands;
+package frc.robot.commands.intake;
 
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -11,7 +11,8 @@ public class IntakePulseCommand extends Command {
 
     public IntakePulseCommand(IntakeSubsystem intakeSubsystem) {
         this.intakeSubsystem = intakeSubsystem;
-        Timer timer = new Timer();
+        this.timer = new Timer();
+
         addRequirements(intakeSubsystem);
     }
 
@@ -24,7 +25,7 @@ public class IntakePulseCommand extends Command {
 
     @Override
     public void execute() {
-        if (timer.hasElapsed(2.5)) {
+        if (timer.hasElapsed(1.5)) {
             timer.reset();
             timer.start();
         }
@@ -33,13 +34,22 @@ public class IntakePulseCommand extends Command {
             intakeSubsystem.setPivotTargetDegrees(IntakeConstants.DEPLOY_DEG);
         }
 
-        if (timer.hasElapsed(2.5)) {
+        if (timer.hasElapsed(1)) {
             intakeSubsystem.setPivotTargetDegrees(IntakeConstants.STOW_DEG);
+        }
+
+        if (Math.toDegrees(intakeSubsystem.getPivotPositionRadians()) > 40) {
+            intakeSubsystem.setRollerPercent(0.25);
+        } else {
+            intakeSubsystem.setRollerPercent(0);
         }
     }
 
     @Override
-    public void end(boolean interrupted) {}
+    public void end(boolean interrupted) {
+        intakeSubsystem.setPivotTargetDegrees(IntakeConstants.STOW_DEG);
+        intakeSubsystem.setRollerPercent(0);
+    }
 
     @Override
     public boolean isFinished() {
