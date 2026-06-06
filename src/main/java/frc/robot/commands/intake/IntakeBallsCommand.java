@@ -1,15 +1,15 @@
-package frc.robot.commands;
+package frc.robot.commands.intake;
 
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.Constants.IntakeConstants;
 import frc.robot.subsystems.IntakeSubsystem;
 
-public class OutakeBallsCommand extends Command {
+public class IntakeBallsCommand extends Command {
     private IntakeSubsystem intake;
     private final Timer timer = new Timer();
 
-    public OutakeBallsCommand(IntakeSubsystem intake) {
+    public IntakeBallsCommand(IntakeSubsystem intake) {
         this.intake = intake;
         addRequirements(intake);
     }
@@ -23,7 +23,7 @@ public class OutakeBallsCommand extends Command {
     @Override
     public void execute() {
         if (timer.hasElapsed(0.3)) {
-            intake.runRollersIn(-IntakeConstants.ROLLER_PERCENT);
+            intake.runRollersIn(IntakeConstants.ROLLER_PERCENT);
         } else {
             intake.stopRoller();
         }
@@ -31,7 +31,7 @@ public class OutakeBallsCommand extends Command {
 
     @Override
     public void end(boolean interrupted) {
-        intake.setPivotTargetDegrees(-IntakeConstants.DEPLOY_DEG);
+        intake.setPivotTargetDegrees(IntakeConstants.DEPLOY_DEG);
         intake.stopRoller();
         timer.stop();
     }

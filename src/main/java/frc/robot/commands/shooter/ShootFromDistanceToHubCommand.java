@@ -1,4 +1,4 @@
-package frc.robot.commands;
+package frc.robot.commands.shooter;
 
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -6,42 +6,60 @@ import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.Constants;
+import frc.robot.Constants.IntakeConstants;
 import frc.robot.Constants.ShooterConstants;
-import frc.robot.subsystems.IndexerSubsystem;
+import frc.robot.subsystems.IntakeSubsystem;
 import frc.robot.subsystems.TestTurretSubsystem;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.shooter.Shooter;
 
-public class ShootFromDistanceToHubCommandAuto extends Command {
+public class ShootFromDistanceToHubCommand extends Command {
     private final Shooter shooter;
-    private final IndexerSubsystem indexer;
-    private final Drive drive;
     private final TestTurretSubsystem turret;
+    private final Drive drive;
+    private IntakeSubsystem intakeSubsystem;
     private Timer timer;
 
-    private double time;
-
-    public ShootFromDistanceToHubCommandAuto(
-            Shooter shooter, IndexerSubsystem indexer, Drive drive, TestTurretSubsystem turret, double time) {
+    public ShootFromDistanceToHubCommand(
+            Shooter shooter, TestTurretSubsystem turret, IntakeSubsystem intakeSubsystem, Drive drive) {
         this.shooter = shooter;
-        this.indexer = indexer;
-        this.drive = drive;
         this.turret = turret;
-        this.time = time;
-
+        this.drive = drive;
+        this.intakeSubsystem = intakeSubsystem;
         this.timer = new Timer();
         addRequirements(shooter);
     }
 
     @Override
     public void initialize() {
-        timer.restart();
+        timer.reset();
         timer.start();
+        intakeSubsystem.setPivotTargetDegrees(IntakeConstants.STOW_DEG);
     }
 
     @Override
     public void execute() {
+
         Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+
+        if (timer.hasElapsed(1.5)) {
+            timer.reset();
+            timer.start();
+        }
+
+        if (timer.hasElapsed(0.5)) {
+            intakeSubsystem.setPivotTargetDegrees(IntakeConstants.DEPLOY_DEG);
+        }
+
+        if (timer.hasElapsed(1)) {
+            intakeSubsystem.setPivotTargetDegrees(IntakeConstants.STOW_DEG);
+        }
+
+        if (Math.toDegrees(intakeSubsystem.getPivotPositionRadians()) > 40) {
+            intakeSubsystem.setRollerPercent(0.25);
+        } else {
+            intakeSubsystem.setRollerPercent(0);
+        }
 
         double hubX, hubY;
         if (alliance == Alliance.Blue) {
@@ -75,21 +93,14 @@ public class ShootFromDistanceToHubCommandAuto extends Command {
                 turret.setTargetAngleRadians(drive.calcTurretAngle(hubField) + Math.toRadians(-10));
             }
         }
-
-        // turret.setTargetAngleRadians(drive.calcTurretAngle(hubField));
-
-        if (timer.hasElapsed(0.5)) {
-            indexer.setSpindexerDutyCycle(ShooterConstants.SPINDEXER_FEED_DUTY);
-            indexer.setShooterIndexerDutyCycle(ShooterConstants.SHOOTER_KICKER_FEED_DUTY);
-        }
     }
 
     @Override
     public void end(boolean interrupted) {
         shooter.stopFlywheel();
         shooter.setHoodAngleDegrees(ShooterConstants.HOOD_TARGET_DEGREES_DASHBOARD_DEFAULT);
-        indexer.setShooterIndexerDutyCycle(0);
-        indexer.setSpindexerDutyCycle(0);
+        intakeSubsystem.setPivotTargetDegrees(IntakeConstants.STOW_DEG);
+        intakeSubsystem.setRollerPercent(0);
     }
 
     @Override

@@ -23,19 +23,20 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.commands.DriveCommands;
-import frc.robot.commands.IntakeBallsCommand;
-import frc.robot.commands.IntakePulseCommand;
-import frc.robot.commands.IntakeStowCommand;
-import frc.robot.commands.OutakeBallsCommand;
-import frc.robot.commands.RunIndexterDutyCycle;
-import frc.robot.commands.ShootAutoCommand;
-import frc.robot.commands.ShootCommand;
-import frc.robot.commands.ShootFromDistanceToHubCommand;
-import frc.robot.commands.ShootFromDistanceToHubCommandAuto;
-import frc.robot.commands.ShuttleShot;
-import frc.robot.commands.TestTurretToPosCommand;
-import frc.robot.commands.TurretFollowCommand;
-import frc.robot.commands.ZeroTurretCommand;
+import frc.robot.commands.intake.IntakeBallsCommand;
+import frc.robot.commands.intake.IntakePulseCommand;
+import frc.robot.commands.intake.IntakeStowCommand;
+import frc.robot.commands.intake.OutakeBallsCommand;
+import frc.robot.commands.intake.RunIndexterDutyCycle;
+import frc.robot.commands.shooter.ShootAutoCommand;
+import frc.robot.commands.shooter.ShootCommand;
+import frc.robot.commands.shooter.ShootFromDistanceToHubCommand;
+import frc.robot.commands.shooter.ShootFromDistanceToHubCommandAuto;
+import frc.robot.commands.shooter.ShuttleShot;
+import frc.robot.commands.turret.TestTurretToPosCommand;
+import frc.robot.commands.turret.TurretFollowCommand;
+import frc.robot.commands.turret.ZeroTurretCommandLeft;
+import frc.robot.commands.turret.ZeroTurretCommandRight;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.ClimbSubsystem;
 import frc.robot.subsystems.IndexerSubsystem;
@@ -572,17 +573,19 @@ public class RobotContainer {
         controller
                 .b()
                 .whileTrue(new ShuttleShot(
-                        shooter, () -> drive.getPose().getTranslation().getY(), testTurret, drive));
+                        shooter, () -> drive.getPose().getTranslation().getY(), testTurret, intake, drive));
 
         // ParallelCommandGroup shootGroup = new ParallelCommandGroup(
         //         new ShootFromDistanceToHubCommand(shooter),
         //         new TurretFollowOdometryCommand(vision, testTurret, drive, 0));
-        controller.leftBumper().whileTrue(new ShootFromDistanceToHubCommand(shooter, testTurret, drive));
+        controller.leftBumper().whileTrue(new ShootFromDistanceToHubCommand(shooter, testTurret, intake, drive));
         controller
                 .y()
                 .whileTrue(Commands.startEnd(
                         () -> indexer.setSpindexerDutyCycle(-0.5), () -> indexer.stopSpindexer(), indexer));
-        controller.povUp().whileTrue(new ZeroTurretCommand(testTurret));
+        controller.povRight().whileTrue(new ZeroTurretCommandRight(testTurret));
+        controller.povLeft().whileTrue(new ZeroTurretCommandLeft(testTurret));
+
         controller
                 .rightBumper()
                 .and(controller.leftBumper())

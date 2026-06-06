@@ -1,4 +1,4 @@
-package frc.robot.commands;
+package frc.robot.commands.intake;
 
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -12,6 +12,7 @@ public class IntakePulseCommand extends Command {
     public IntakePulseCommand(IntakeSubsystem intakeSubsystem) {
         this.intakeSubsystem = intakeSubsystem;
         this.timer = new Timer();
+
         addRequirements(intakeSubsystem);
     }
 

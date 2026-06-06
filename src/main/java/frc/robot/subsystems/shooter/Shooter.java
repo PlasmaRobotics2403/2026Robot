@@ -97,6 +97,11 @@ public class Shooter extends SubsystemBase {
         SmartDashboard.putNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "kP", hoodPidP);
         SmartDashboard.putNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "kI", hoodPidI);
         SmartDashboard.putNumber(ShooterConstants.HOOD_PID_DASHBOARD_PREFIX + "kD", hoodPidD);
+        SmartDashboard.putNumber("Shooter/Shuttle Near Angle Offset", 10);
+        SmartDashboard.putNumber("Shooter/Shuttle Far Angle Offset", 6);
+        SmartDashboard.putNumber("Shooter/Shuttle Near Speed", 50);
+        SmartDashboard.putNumber("Shooter/Shuttle Far Speed", 85);
+
         SmartDashboard.putNumber("Shooter/rpsOffset", rpsOffset);
         SmartDashboard.putNumber(
                 ShooterConstants.FLYWHEEL_TARGET_RPS_DASHBOARD_KEY,
