@@ -22,6 +22,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
+import frc.robot.Constants.TurretConstants;
 import frc.robot.commands.DriveCommands;
 import frc.robot.commands.intake.IntakeBallsCommand;
 import frc.robot.commands.intake.IntakePulseCommand;
@@ -662,6 +663,21 @@ public class RobotContainer {
                 .targetPose()
                 .toPose2d();
         field.getObject("TurretTarget").setPose(targetPose);
+
+        Translation2d turretFieldTranslation = robotPose
+                .getTranslation()
+                .plus(TurretConstants.TURRET_PIVOT_FROM_ROBOT_CENTER.rotateBy(robotPose.getRotation()));
+        Rotation2d currentTurretFieldRotation = robotPose
+                .getRotation()
+                .plus(TurretConstants.TURRET_ZERO_ROBOT_BEARING)
+                .minus(Rotation2d.fromRadians(testTurret.getPositionRadians()));
+        Rotation2d targetTurretFieldRotation = robotPose
+                .getRotation()
+                .plus(TurretConstants.TURRET_ZERO_ROBOT_BEARING)
+                .minus(Rotation2d.fromRadians(testTurret.getTargetAngleRadians()));
+
+        Logger.recordOutput("Turret/CurrentPose", new Pose2d(turretFieldTranslation, currentTurretFieldRotation));
+        Logger.recordOutput("Turret/TargetPose", new Pose2d(turretFieldTranslation, targetTurretFieldRotation));
     }
 
     public int getGridSelectorTagID() {

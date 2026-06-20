@@ -114,7 +114,7 @@ public class IntakeSubsystem extends SubsystemBase {
         rollerMotor2.optimizeBusUtilization();
 
         // PID defaults (safe and gentle)
-        pivotPid.setTolerance(Units.degreesToRadians(2.0));
+        pivotPid.setTolerance(Units.degreesToRadians(0.5));
         SmartDashboard.putNumber(PIVOT_PID_DASHBOARD_PREFIX + "kP", pivotPidP);
         SmartDashboard.putNumber(PIVOT_PID_DASHBOARD_PREFIX + "kI", pivotPidI);
         SmartDashboard.putNumber(PIVOT_PID_DASHBOARD_PREFIX + "kD", pivotPidD);

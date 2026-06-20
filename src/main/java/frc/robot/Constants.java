@@ -1,5 +1,6 @@
 package frc.robot;
 
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation2d;
@@ -38,6 +39,16 @@ public final class Constants {
     public static final class TurretConstants {
         private TurretConstants() {}
 
+        // WPILib robot coordinates: +X is robot front, +Y is robot left.
+        // Turret encoder angle 0 means shooter points robot-left.
+        // Positive turret angle rotates clockwise from the turret zero direction.
+        public static final Rotation2d TURRET_ZERO_ROBOT_BEARING = Rotation2d.fromDegrees(90.0);
+
+        public static final Rotation2d TURRET_AIM_CALIBRATION_OFFSET = Rotation2d.fromDegrees(0.0);
+
+        public static final Translation2d TURRET_PIVOT_FROM_ROBOT_CENTER =
+                new Translation2d(Units.inchesToMeters(-6.25), Units.inchesToMeters(6.25));
+
         public static final double kP = 1;
         public static final double kI = 0.0;
         public static final double kD = 0.0;
@@ -50,8 +61,8 @@ public final class Constants {
 
         public static final double MIN_ANGLE_DEG = -183.0;
         public static final double MAX_ANGLE_DEG = 183.0;
-        public static final Translation2d TURRET_PIVOT_FROM_ROBOT_CENTER =
-                new Translation2d(Units.inchesToMeters(-6.25), Units.inchesToMeters(6.25)); // 6.25
+        // public static final Translation2d TURRET_PIVOT_FROM_ROBOT_CENTER =
+        //         new Translation2d(Units.inchesToMeters(-6.25), Units.inchesToMeters(6.25)); // 6.25
         public static final Translation2d TURRET_PIVOT_FROM_ROBOT_CENTER_AUTO =
                 new Translation2d(Units.inchesToMeters(-6.25), Units.inchesToMeters(6.25)); // 6.25
 
