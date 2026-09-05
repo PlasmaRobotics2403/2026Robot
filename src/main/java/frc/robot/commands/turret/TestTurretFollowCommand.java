@@ -50,6 +50,7 @@ public class TestTurretFollowCommand extends Command {
     @Override
     public void initialize() {
         previousZone = Optional.empty();
+        turret.clearUnwinding();
         turret.setTargetAngleRadians(turret.getPositionRadians());
         SmartDashboard.putNumber(kFollowOffsetDegKey, SmartDashboard.getNumber(kFollowOffsetDegKey, 0.0));
         SmartDashboard.putBoolean(kUseFeedPointKey, SmartDashboard.getBoolean(kUseFeedPointKey, false));
@@ -99,12 +100,16 @@ public class TestTurretFollowCommand extends Command {
 
         TurretTargetingUtil.FlipPlan flipPlan = TurretTargetingUtil.planFlip(
                 turret.getPositionRadians(), requestedTargetAngleRad, turret.MIN_ANGLE_RAD, turret.MAX_ANGLE_RAD);
-        boolean unwindActive = flipPlan.shouldUnwind();
-        double preClampCommandAngleRad = unwindActive
+        boolean unwindRequested = flipPlan.shouldUnwind();
+        double preClampCommandAngleRad = unwindRequested
                 ? flipPlan.unwindTargetAngleRad().orElse(requestedTargetAngleRad)
                 : requestedTargetAngleRad;
         double commandedAngleRad = MathUtil.clamp(preClampCommandAngleRad, turret.MIN_ANGLE_RAD, turret.MAX_ANGLE_RAD);
         boolean saturated = Math.abs(preClampCommandAngleRad - commandedAngleRad) > 1e-6;
+
+        turret.setTargetAngleRadians(commandedAngleRad);
+        turret.updateUnwinding(unwindRequested);
+        boolean unwindActive = turret.isUnwinding();
 
         Logger.recordOutput("Turret/Follow/OffsetDeg", followOffsetDeg);
         Logger.recordOutput("Turret/Follow/Alliance", alliance.toString());
@@ -135,6 +140,7 @@ public class TestTurretFollowCommand extends Command {
         Logger.recordOutput("Turret/Follow/RequestedTargetDeg", Units.radiansToDegrees(requestedTargetAngleRad));
         Logger.recordOutput("Turret/Follow/PreClampCommandedAngleDeg", Units.radiansToDegrees(preClampCommandAngleRad));
         Logger.recordOutput("Turret/Follow/CommandedAngleDeg", Units.radiansToDegrees(commandedAngleRad));
+        Logger.recordOutput("Turret/Follow/UnwindRequested", unwindRequested);
         Logger.recordOutput("Turret/Follow/UnwindActive", unwindActive);
         Logger.recordOutput(
                 "Turret/Follow/UnwindTargetDeg",
@@ -169,8 +175,6 @@ public class TestTurretFollowCommand extends Command {
         SmartDashboard.putBoolean("Turret/Follow/AtLimit", turret.isAtLimit());
         SmartDashboard.putNumber("Turret/Follow/RequestedTargetDeg", Units.radiansToDegrees(requestedTargetAngleRad));
         SmartDashboard.putNumber("Turret/Follow/CommandedAngleDeg", Units.radiansToDegrees(commandedAngleRad));
-
-        turret.setTargetAngleRadians(commandedAngleRad);
     }
 
     @Override

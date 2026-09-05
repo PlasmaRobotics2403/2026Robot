@@ -71,5 +71,5 @@
   },
   "wpilib.selectDefaultSimulateExtension": true,
   "wpilib.skipSelectSimulateExtension": false,
-  "java.debug.settings.onBuildFailureProceed": true
+  "java.debug.settings.onBuildFailureProceed": false
 }

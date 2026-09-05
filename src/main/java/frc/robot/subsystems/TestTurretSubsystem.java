@@ -29,7 +29,7 @@ public class TestTurretSubsystem extends SubsystemBase {
     public DigitalInput limitSwitch;
 
     public static final String CAN_BUS = "rio";
-    public static final double GEAR_RATIO = 24;
+    public static final double GEAR_RATIO = 26;
 
     private static final String DASHBOARD_PID_PREFIX = "Turret PID/";
     private static final String FOLLOW_OFFSET_DASHBOARD_KEY = "Turret/Follow/OffsetDeg";
@@ -41,6 +41,7 @@ public class TestTurretSubsystem extends SubsystemBase {
 
     private double targetAngleRad = 0.0;
     private boolean controlEnabled = false;
+    private boolean unwinding = false;
     private double lastDashboardP = TurretConstants.kP;
     private double lastDashboardI = TurretConstants.kI;
     private double lastDashboardD = TurretConstants.kD;
@@ -143,6 +144,7 @@ public class TestTurretSubsystem extends SubsystemBase {
         SmartDashboard.putNumber("Turret/AngleDeg", angleDeg);
 
         Logger.recordOutput("Turret/ClosedLoopEnabled", controlEnabled);
+        Logger.recordOutput("Turret/Unwinding", unwinding);
         Logger.recordOutput("Turret/TargetAngleRad", targetAngleRad);
         Logger.recordOutput("Turret/TargetAngleDeg", Units.radiansToDegrees(targetAngleRad));
         Logger.recordOutput("Turret/AngleErrorRad", targetAngleRad - getPositionRadians());
@@ -151,6 +153,7 @@ public class TestTurretSubsystem extends SubsystemBase {
         if (DashboardThrottle.shouldPublish("Turret/Target", 0.1)) {
             SmartDashboard.putNumber("Turret/TargetAngleDeg", Units.radiansToDegrees(targetAngleRad));
             SmartDashboard.putBoolean("Turret/ClosedLoopEnabled", controlEnabled);
+            SmartDashboard.putBoolean("Turret/Unwinding", unwinding);
         }
 
         SmartDashboard.putBoolean("Turret/GetLimitSwitch", getLimitSwitch());
@@ -188,6 +191,18 @@ public class TestTurretSubsystem extends SubsystemBase {
         return Math.abs(targetAngleRad - getPositionRadians()) <= POSITION_TOLERANCE_RAD;
     }
 
+    public void updateUnwinding(boolean unwindRequested) {
+        unwinding = unwindRequested || (unwinding && !atTarget());
+    }
+
+    public boolean isUnwinding() {
+        return unwinding;
+    }
+
+    public void clearUnwinding() {
+        unwinding = false;
+    }
+
     public void disableClosedLoop() {
         controlEnabled = false;
         stop();
@@ -210,6 +225,7 @@ public class TestTurretSubsystem extends SubsystemBase {
 
     public void stop() {
         controlEnabled = false;
+        clearUnwinding();
         motor.stopMotor();
     }
 

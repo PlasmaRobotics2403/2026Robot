@@ -11,7 +11,9 @@ import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 import com.pathplanner.lib.commands.PathPlannerAuto;
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
@@ -25,7 +27,7 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.Constants.TurretConstants;
 import frc.robot.commands.DriveCommands;
 import frc.robot.commands.intake.IntakeBallsCommand;
-import frc.robot.commands.intake.IntakePulseCommand;
+import frc.robot.commands.intake.IntakeOnlyCommand;
 import frc.robot.commands.intake.IntakeStowCommand;
 import frc.robot.commands.intake.OutakeBallsCommand;
 import frc.robot.commands.intake.RunIndexterDutyCycle;
@@ -137,6 +139,7 @@ public class RobotContainer {
                 cam0VisionIO = new VisionIOPhotonVision(camera0Name, robotToCamera0, drive);
                 break;
 
+
             default:
                 drive = new Drive(
                         new GyroIO() {},
@@ -161,18 +164,27 @@ public class RobotContainer {
         autoChooser.addOption("2BlueNear Mid Semantic Auto", buildAllianceCorrect2BlueNearMidAuto());
         autoChooser.addOption("2RedFar Mid Semantic Auto", buildAllianceCorrect2RedFarMidAuto());
         autoChooser.addOption("2RedNear Mid Semantic Auto", buildAllianceCorrect2RedNearMidAuto());
+        // autoChooser.addOption("Depo Auto", buildDepoAuto());
 
-        autoChooser.addOption("Depo Auto", buildDepoAuto());
-
-        autoChooser.addOption("RedNearSweep Score Auto", buildRedNearSweepAuto());
-        autoChooser.addOption("RedFarSweep Score Auto", buildRedFarSweepAuto());
-        autoChooser.addOption("BlueNearSweep Score Auto", buildBlueNearSweepAuto());
-        autoChooser.addOption("BlueFarSweep Score Auto", buildBlueFarSweepAuto());
+        // autoChooser.addOption("RedNearSweep Score Auto", buildRedNearSweepAuto());
+        // autoChooser.addOption("RedFarSweep Score Auto", buildRedFarSweepAuto());
+        // autoChooser.addOption("BlueNearSweep Score Auto", buildBlueNearSweepAuto());
+        // autoChooser.addOption("BlueFarSweep Score Auto", buildBlueFarSweepAuto());
 
         autoChooser.addOption("FastRedNearSweep Score Auto", buildFastRedNearSweepAuto());
         autoChooser.addOption("FastRedFarSweep Score Auto", buildFastRedFarSweepAuto());
         autoChooser.addOption("FastBlueNearSweep Score Auto", buildFastBlueNearSweepAuto());
         autoChooser.addOption("FastBlueFarSweep Score Auto", buildFastBlueFarSweepAuto());
+
+        autoChooser.addOption("ShootFirstRedNearAuto", buildShootFirstRedNearAuto());
+        autoChooser.addOption("ShootFirstRedFarAuto", buildShootFirstRedFarAuto());
+        autoChooser.addOption("ShootFirstBlueNearAuto", buildShootFirstBlueNearAuto());
+        autoChooser.addOption("ShootFirstBlueFarAuto", buildShootFirstBlueFarAuto());
+
+        autoChooser.addOption("RaceRedNearAuto", buildRaceRedNearAuto());
+        autoChooser.addOption("RaceRedFarAuto", buildRaceRedFarAuto());
+        autoChooser.addOption("RaceBlueNearAuto", buildRaceBlueNearAuto());
+        autoChooser.addOption("RaceBlueFarAuto", buildRaceBlueFarAuto());
 
         // autoChooser.addOption("Shoot Only Near Blue", buildShootOnlyAutoNearBlue());
         // autoChooser.addOption("Shoot Only Far Blue", buildShootOnlyAutoFarBlue());
@@ -195,10 +207,11 @@ public class RobotContainer {
     }
 
     private void registerNamedCommands() {
-        NamedCommands.registerCommand("Deploy Intake", new IntakeBallsCommand(intake).withName("Deploy Intake"));
+        NamedCommands.registerCommand("Intake Only", new IntakeOnlyCommand(intake).withName("Intake Only"));
+        NamedCommands.registerCommand(
+                "Deploy Intake", new IntakeBallsCommand(intake, indexer).withName("Deploy Intake"));
 
         NamedCommands.registerCommand("Stow Intake", new IntakeStowCommand(intake).withName("Stow Intake"));
-        NamedCommands.registerCommand("Pulse Intake", new IntakePulseCommand(intake).withName("Pulse Intake"));
 
         NamedCommands.registerCommand(
                 "Static Shot",
@@ -221,22 +234,42 @@ public class RobotContainer {
                         .withName("Stop Rollers"));
 
         NamedCommands.registerCommand(
-                "Shoot",
-                new ShootFromDistanceToHubCommandAuto(shooter, indexer, drive, testTurret, 5).withName("Shoot"));
+                "Shoot", new ShootFromDistanceToHubCommandAuto(shooter, indexer, drive, testTurret).withName("Shoot"));
+
+        NamedCommands.registerCommand(
+                "Start Auto Shooting",
+                new ShootFromDistanceToHubCommandAuto(shooter, indexer, drive, testTurret)
+                        .withName("Start Auto Shooting"));
 
         NamedCommands.registerCommand(
                 "Stop Shooter",
                 Commands.runOnce(
                                 () -> {
                                     shooter.stopFlywheel();
-                                    // intake.stopRoller();
+                                    shooter.setHoodAngleDegrees(
+                                            Constants.ShooterConstants.HOOD_TARGET_DEGREES_DASHBOARD_DEFAULT);
                                     indexer.stopSpindexer();
                                     indexer.stopShooterIndexer();
                                 },
                                 shooter,
-                                intake,
-                                indexer)
+                                indexer,
+                                testTurret)
                         .withName("Stop Shooter"));
+
+        NamedCommands.registerCommand(
+                "Stop Auto Shooting",
+                Commands.runOnce(
+                                () -> {
+                                    shooter.stopFlywheel();
+                                    shooter.setHoodAngleDegrees(
+                                            Constants.ShooterConstants.HOOD_TARGET_DEGREES_DASHBOARD_DEFAULT);
+                                    indexer.stopSpindexer();
+                                    indexer.stopShooterIndexer();
+                                },
+                                shooter,
+                                indexer,
+                                testTurret)
+                        .withName("Stop Auto Shooting"));
     }
 
     private Command buildAllianceCorrectFarMidAuto() {
@@ -252,7 +285,7 @@ public class RobotContainer {
 
                             return auto;
                         },
-                        java.util.Set.of(drive, intake, shooter, indexer))
+                        java.util.Set.of(drive, intake, shooter, indexer, testTurret))
                 .withName("Far Mid Semantic Auto");
     }
 
@@ -268,7 +301,7 @@ public class RobotContainer {
 
                             return auto;
                         },
-                        java.util.Set.of(drive, intake, shooter, indexer))
+                        java.util.Set.of(drive, intake, shooter, indexer, testTurret))
                 .withName("Far Mid Semantic Auto");
     }
 
@@ -284,7 +317,7 @@ public class RobotContainer {
 
                             return auto;
                         },
-                        java.util.Set.of(drive, intake, shooter, indexer))
+                        java.util.Set.of(drive, intake, shooter, indexer, testTurret))
                 .withName("Far Mid Semantic Auto");
     }
 
@@ -301,7 +334,7 @@ public class RobotContainer {
 
                             return auto;
                         },
-                        java.util.Set.of(drive, intake, shooter, indexer))
+                        java.util.Set.of(drive, intake, shooter, indexer, testTurret))
                 .withName("Near Mid Semantic Auto");
     }
 
@@ -317,7 +350,7 @@ public class RobotContainer {
 
                             return auto;
                         },
-                        java.util.Set.of(drive, intake, shooter, indexer))
+                        java.util.Set.of(drive, intake, shooter, indexer, testTurret))
                 .withName("Near Mid Semantic Auto");
     }
 
@@ -333,7 +366,7 @@ public class RobotContainer {
 
                             return auto;
                         },
-                        java.util.Set.of(drive, intake, shooter, indexer))
+                        java.util.Set.of(drive, intake, shooter, indexer, testTurret))
                 .withName("Near Mid Semantic Auto");
     }
 
@@ -349,7 +382,7 @@ public class RobotContainer {
 
                             return auto;
                         },
-                        java.util.Set.of(drive, intake, shooter, indexer))
+                        java.util.Set.of(drive, intake, shooter, indexer, testTurret))
                 .withName("Depo Auto");
     }
 
@@ -365,7 +398,7 @@ public class RobotContainer {
 
                             return auto;
                         },
-                        java.util.Set.of(drive, intake, shooter, indexer))
+                        java.util.Set.of(drive, intake, shooter, indexer, testTurret))
                 .withName("Near Sweep Score Auto");
     }
 
@@ -381,7 +414,7 @@ public class RobotContainer {
 
                             return auto;
                         },
-                        java.util.Set.of(drive, intake, shooter, indexer))
+                        java.util.Set.of(drive, intake, shooter, indexer, testTurret))
                 .withName("Far Sweep Score Auto");
     }
 
@@ -397,7 +430,7 @@ public class RobotContainer {
 
                             return auto;
                         },
-                        java.util.Set.of(drive, intake, shooter, indexer))
+                        java.util.Set.of(drive, intake, shooter, indexer, testTurret))
                 .withName("Far Sweep Score Auto");
     }
 
@@ -413,7 +446,7 @@ public class RobotContainer {
 
                             return auto;
                         },
-                        java.util.Set.of(drive, intake, shooter, indexer))
+                        java.util.Set.of(drive, intake, shooter, indexer, testTurret))
                 .withName("Far Sweep Score Auto");
     }
 
@@ -429,8 +462,8 @@ public class RobotContainer {
 
                             return auto;
                         },
-                        java.util.Set.of(drive, intake, shooter, indexer))
-                .withName("FastFar Sweep Score Auto");
+                        java.util.Set.of(drive, intake, shooter, indexer, testTurret))
+                .withName("Fast Near Sweep Score Auto");
     }
 
     private Command buildFastRedNearSweepAuto() {
@@ -445,8 +478,8 @@ public class RobotContainer {
 
                             return auto;
                         },
-                        java.util.Set.of(drive, intake, shooter, indexer))
-                .withName("Fast Near Sweep Score Auto");
+                        java.util.Set.of(drive, intake, shooter, indexer, testTurret))
+                .withName("Fast Far Sweep Score Auto");
     }
 
     private Command buildFastBlueFarSweepAuto() {
@@ -461,7 +494,7 @@ public class RobotContainer {
 
                             return auto;
                         },
-                        java.util.Set.of(drive, intake, shooter, indexer))
+                        java.util.Set.of(drive, intake, shooter, indexer, testTurret))
                 .withName("Fast Far Sweep Score Auto");
     }
 
@@ -477,8 +510,136 @@ public class RobotContainer {
 
                             return auto;
                         },
-                        java.util.Set.of(drive, intake, shooter, indexer))
+                        java.util.Set.of(drive, intake, shooter, indexer, testTurret))
                 .withName("Fast Near Sweep Score Auto");
+    }
+
+    private Command buildShootFirstBlueNearAuto() {
+        return Commands.defer(
+                        () -> {
+                            Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+                            String autoFile = "ShootFirstBlueNearAuto";
+
+                            PathPlannerAuto auto = new PathPlannerAuto(autoFile);
+                            drive.resetOdometry(auto.getStartingPose());
+                            // Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
+
+                            return auto;
+                        },
+                        java.util.Set.of(drive, intake, shooter, indexer, testTurret))
+                .withName("ShootFirstBlueNearAuto");
+    }
+
+    private Command buildShootFirstBlueFarAuto() {
+        return Commands.defer(
+                        () -> {
+                            Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+                            String autoFile = "ShootFirstBlueFarAuto";
+
+                            PathPlannerAuto auto = new PathPlannerAuto(autoFile);
+                            drive.resetOdometry(auto.getStartingPose());
+                            // Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
+
+                            return auto;
+                        },
+                        java.util.Set.of(drive, intake, shooter, indexer, testTurret))
+                .withName("ShootFirstBlueFarAuto");
+    }
+
+    private Command buildShootFirstRedFarAuto() {
+        return Commands.defer(
+                        () -> {
+                            Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+                            String autoFile = "ShootFirstBlueNearAuto";
+
+                            PathPlannerAuto auto = new PathPlannerAuto(autoFile);
+                            drive.resetOdometry(auto.getStartingPose());
+                            // Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
+
+                            return auto;
+                        },
+                        java.util.Set.of(drive, intake, shooter, indexer, testTurret))
+                .withName("ShootFirstRedFarAuto");
+    }
+
+    private Command buildShootFirstRedNearAuto() {
+        return Commands.defer(
+                        () -> {
+                            Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+                            String autoFile = "ShootFirstBlueFarAuto";
+
+                            PathPlannerAuto auto = new PathPlannerAuto(autoFile);
+                            drive.resetOdometry(auto.getStartingPose());
+                            // Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
+
+                            return auto;
+                        },
+                        java.util.Set.of(drive, intake, shooter, indexer, testTurret))
+                .withName("ShootFirstRedNearAuto");
+    }
+
+    private Command buildRaceRedNearAuto() {
+        return Commands.defer(
+                        () -> {
+                            Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+                            String autoFile = "RaceBlueFarAuto";
+
+                            PathPlannerAuto auto = new PathPlannerAuto(autoFile);
+                            drive.resetOdometry(auto.getStartingPose());
+                            // Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
+
+                            return auto;
+                        },
+                        java.util.Set.of(drive, intake, shooter, indexer, testTurret))
+                .withName("RaceRedNearAuto");
+    }
+
+    private Command buildRaceRedFarAuto() {
+        return Commands.defer(
+                        () -> {
+                            Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+                            String autoFile = "RaceBlueNearAuto";
+
+                            PathPlannerAuto auto = new PathPlannerAuto(autoFile);
+                            drive.resetOdometry(auto.getStartingPose());
+                            // Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
+
+                            return auto;
+                        },
+                        java.util.Set.of(drive, intake, shooter, indexer, testTurret))
+                .withName("RaceRedFarAuto");
+    }
+
+    private Command buildRaceBlueNearAuto() {
+        return Commands.defer(
+                        () -> {
+                            Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+                            String autoFile = "RaceBlueNearAuto";
+
+                            PathPlannerAuto auto = new PathPlannerAuto(autoFile);
+                            drive.resetOdometry(auto.getStartingPose());
+                            // Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
+
+                            return auto;
+                        },
+                        java.util.Set.of(drive, intake, shooter, indexer, testTurret))
+                .withName("RaceBlueNearAuto");
+    }
+
+    private Command buildRaceBlueFarAuto() {
+        return Commands.defer(
+                        () -> {
+                            Alliance alliance = DriverStation.getAlliance().orElse(Alliance.Blue);
+                            String autoFile = "RaceBlueFarAuto";
+
+                            PathPlannerAuto auto = new PathPlannerAuto(autoFile);
+                            drive.resetOdometry(auto.getStartingPose());
+                            // Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
+
+                            return auto;
+                        },
+                        java.util.Set.of(drive, intake, shooter, indexer, testTurret))
+                .withName("RaceRedNearAuto");
     }
 
     private Command buildDriveForwardAuto() {
@@ -495,7 +656,7 @@ public class RobotContainer {
 
         commandGroup.addCommands(
                 Commands.runOnce(() -> drive.resetOdometry(startingPose)),
-                new ShootFromDistanceToHubCommandAuto(shooter, indexer, drive, testTurret, 5));
+                new ShootFromDistanceToHubCommandAuto(shooter, indexer, drive, testTurret));
         return commandGroup;
     }
 
@@ -505,7 +666,7 @@ public class RobotContainer {
         startingPose = new Pose2d(12.967, 0.598, new Rotation2d(-Math.PI / 2));
         commandGroup.addCommands(
                 Commands.runOnce(() -> drive.resetOdometry(startingPose)),
-                new ShootFromDistanceToHubCommandAuto(shooter, indexer, drive, testTurret, 5));
+                new ShootFromDistanceToHubCommandAuto(shooter, indexer, drive, testTurret));
         return commandGroup;
     }
 
@@ -516,7 +677,7 @@ public class RobotContainer {
         startingPose = new Pose2d(3.533, 7.407, new Rotation2d(Math.PI / 2));
         commandGroup.addCommands(
                 Commands.runOnce(() -> drive.resetOdometry(startingPose)),
-                new ShootFromDistanceToHubCommandAuto(shooter, indexer, drive, testTurret, 5));
+                new ShootFromDistanceToHubCommandAuto(shooter, indexer, drive, testTurret));
         return commandGroup;
     }
 
@@ -528,7 +689,7 @@ public class RobotContainer {
 
         commandGroup.addCommands(
                 Commands.runOnce(() -> drive.resetOdometry(startingPose)),
-                new ShootFromDistanceToHubCommandAuto(shooter, indexer, drive, testTurret, 5));
+                new ShootFromDistanceToHubCommandAuto(shooter, indexer, drive, testTurret));
         return commandGroup;
     }
 
@@ -560,9 +721,8 @@ public class RobotContainer {
                         () -> -controller.getLeftY() * 0.65,
                         () -> -controller.getLeftX() * 0.65,
                         () -> -controller.getRightX() * 0.65));
-        controller.rightTrigger().whileTrue(new IntakeBallsCommand(intake));
+        controller.rightTrigger().whileTrue(new IntakeOnlyCommand(intake));
 
-        controller.a().whileTrue(new IntakePulseCommand(intake));
         // controller
         //         .b()
         //         .whileTrue(new ShootFromDistanceCommand(
@@ -574,12 +734,12 @@ public class RobotContainer {
         controller
                 .b()
                 .whileTrue(new ShuttleShot(
-                        shooter, () -> drive.getPose().getTranslation().getY(), testTurret, intake, drive));
+                        shooter, () -> drive.getPose().getTranslation().getY(), testTurret, drive));
 
         // ParallelCommandGroup shootGroup = new ParallelCommandGroup(
         //         new ShootFromDistanceToHubCommand(shooter),
         //         new TurretFollowOdometryCommand(vision, testTurret, drive, 0));
-        controller.leftBumper().whileTrue(new ShootFromDistanceToHubCommand(shooter, testTurret, intake, drive));
+        controller.leftBumper().whileTrue(new ShootFromDistanceToHubCommand(shooter, testTurret, drive));
         controller
                 .y()
                 .whileTrue(Commands.startEnd(
@@ -593,14 +753,16 @@ public class RobotContainer {
                 .whileTrue(new RunIndexterDutyCycle(
                         indexer,
                         Constants.ShooterConstants.SPINDEXER_FEED_DUTY,
-                        Constants.ShooterConstants.SHOOTER_KICKER_FEED_DUTY));
+                        Constants.ShooterConstants.SHOOTER_KICKER_FEED_DUTY,
+                        () -> !testTurret.isUnwinding()));
         controller
                 .rightBumper()
                 .and(controller.b())
                 .whileTrue(new RunIndexterDutyCycle(
                         indexer,
                         Constants.ShooterConstants.SPINDEXER_FEED_DUTY,
-                        Constants.ShooterConstants.SHOOTER_KICKER_FEED_DUTY));
+                        Constants.ShooterConstants.SHOOTER_KICKER_FEED_DUTY,
+                        () -> !testTurret.isUnwinding()));
         // controller
         //         .rightBumper()
         //         .and(controller.x())
@@ -615,7 +777,8 @@ public class RobotContainer {
                 .whileTrue(new RunIndexterDutyCycle(
                         indexer,
                         Constants.ShooterConstants.SPINDEXER_FEED_DUTY,
-                        Constants.ShooterConstants.SHOOTER_KICKER_FEED_DUTY));
+                        Constants.ShooterConstants.SHOOTER_KICKER_FEED_DUTY,
+                        () -> !testTurret.isUnwinding()));
     }
 
     public Command getAutonomousCommand() {
@@ -678,6 +841,28 @@ public class RobotContainer {
 
         Logger.recordOutput("Turret/CurrentPose", new Pose2d(turretFieldTranslation, currentTurretFieldRotation));
         Logger.recordOutput("Turret/TargetPose", new Pose2d(turretFieldTranslation, targetTurretFieldRotation));
+        if (Constants.currentMode == Constants.Mode.SIM) {
+            logTurretArrow("Turret/TargetArrow", turretFieldTranslation, targetTurretFieldRotation, 1.6, 1.0);
+            logTurretArrow("Turret/CurrentArrow", turretFieldTranslation, currentTurretFieldRotation, 1.2, 0.9);
+        }
+    }
+
+    /** Display-only arrow above the robot, with its tail at the turret pivot. */
+    private static void logTurretArrow(
+            String key, Translation2d pivot, Rotation2d heading, double lengthMeters, double heightMeters) {
+        Translation2d[] points = {
+            new Translation2d(),
+            new Translation2d(lengthMeters, 0),
+            new Translation2d(lengthMeters - 0.3, 0.18),
+            new Translation2d(lengthMeters, 0),
+            new Translation2d(lengthMeters - 0.3, -0.18)
+        };
+        Pose3d[] arrow = new Pose3d[points.length];
+        for (int i = 0; i < points.length; i++) {
+            Translation2d point = pivot.plus(points[i].rotateBy(heading));
+            arrow[i] = new Pose3d(point.getX(), point.getY(), heightMeters, new Rotation3d());
+        }
+        Logger.recordOutput(key, arrow);
     }
 
     public int getGridSelectorTagID() {

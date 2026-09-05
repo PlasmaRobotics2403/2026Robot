@@ -5,6 +5,7 @@ import static frc.robot.subsystems.vision.VisionConstants.angularStdDevMegatag2F
 import static frc.robot.subsystems.vision.VisionConstants.aprilTagLayout;
 import static frc.robot.subsystems.vision.VisionConstants.cameraLocalizationEnabled;
 import static frc.robot.subsystems.vision.VisionConstants.cameraStdDevFactors;
+import static frc.robot.subsystems.vision.VisionConstants.enableVisionInAuto;
 import static frc.robot.subsystems.vision.VisionConstants.linearStdDevBaseline;
 import static frc.robot.subsystems.vision.VisionConstants.linearStdDevMegatag2Factor;
 
@@ -212,13 +213,13 @@ public class Vision extends SubsystemBase {
                     angularStdDev *= cameraStdDevFactors[cameraIndex];
                 }
 
-                if (localizationEnabled) {
-                    if (DriverStation.isTeleop()) {
-                        consumer.accept(
-                                observation.pose().toPose2d(),
-                                observation.timestamp(),
-                                VecBuilder.fill(linearStdDev, linearStdDev, angularStdDev));
-                    }
+                boolean localizationEnabledForMode =
+                        DriverStation.isTeleopEnabled() || (DriverStation.isAutonomousEnabled() && enableVisionInAuto);
+                if (localizationEnabled && localizationEnabledForMode) {
+                    consumer.accept(
+                            observation.pose().toPose2d(),
+                            observation.timestamp(),
+                            VecBuilder.fill(linearStdDev, linearStdDev, angularStdDev));
                 }
             }
 

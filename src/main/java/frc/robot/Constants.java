@@ -36,6 +36,18 @@ public final class Constants {
         public static final double ROLLER_PERCENT = 0.75;
     }
 
+    public static final class DriveConstants {
+        private DriveConstants() {}
+
+        public static final double PATHPLANNER_TRANSLATION_KP = 11.0;
+        public static final double PATHPLANNER_TRANSLATION_KI = 0.0;
+        public static final double PATHPLANNER_TRANSLATION_KD = 0.0;
+
+        public static final double PATHPLANNER_ROTATION_KP = 10.0;
+        public static final double PATHPLANNER_ROTATION_KI = 0.0;
+        public static final double PATHPLANNER_ROTATION_KD = 0.0;
+    }
+
     public static final class TurretConstants {
         private TurretConstants() {}
 
@@ -55,9 +67,9 @@ public final class Constants {
         public static final double kS = 0.0;
         public static final double kV = 0.0;
         public static final double kA = 0.0;
-        public static final double kCruiseVelocityRps = 200.0;
-        public static final double kAccelerationRpsPerSec = 300.0;
-        public static final double kJerkRpsPerSec2 = 4000.0;
+        public static final double kCruiseVelocityRps = 100.0; // 200
+        public static final double kAccelerationRpsPerSec = 50.0; // 300
+        public static final double kJerkRpsPerSec2 = 2000.0; // 4000
 
         public static final double MIN_ANGLE_DEG = -183.0;
         public static final double MAX_ANGLE_DEG = 183.0;
@@ -108,6 +120,7 @@ public final class Constants {
 
         public static final double FLYWHEEL_DEFAULT_RPS = 55.0;
         public static final double FLYWHEEL_SPEED_TOLERANCE_RPS = 2.0;
+        public static final double FLYWHEEL_READY_DEBOUNCE_SECONDS = 0.10;
         public static final String FLYWHEEL_TARGET_RPS_DASHBOARD_KEY = "Shooter/Flywheel/TargetRps";
         public static final double FLYWHEEL_TARGET_RPS_DASHBOARD_DEFAULT = FLYWHEEL_DEFAULT_RPS;
         public static final String TUNING_FLYWHEEL_TARGET_RPS_DASHBOARD_KEY = "Shooter/Tuning/FlywheelTargetRps";
@@ -136,6 +149,9 @@ public final class Constants {
         public static final double TUNING_TAG_DISTANCE_METERS_DASHBOARD_DEFAULT =
                 TUNING_DISTANCE_METERS_DASHBOARD_DEFAULT;
         public static final String TUNING_HOOD_TARGET_DEG_DASHBOARD_KEY = "Shooter/Tuning/HoodTargetDeg";
+        public static final String TUNING_FAR_SHOT = "Shooter/Tuning/TuningFarShot";
+        public static final String TUNING_FAR_SHOT_DISTANCE = "Shooter/Tuning/TuningFarShotDistance";
+
         public static final double TUNING_HOOD_TARGET_DEG_DASHBOARD_DEFAULT = HOOD_TARGET_DEGREES_DASHBOARD_DEFAULT;
         public static final String TUNING_CURRENT_HOOD_DEG_DASHBOARD_KEY = "Shooter/Tuning/CurrentHoodDeg";
         public static final String TUNING_CURRENT_FLYWHEEL_RPS_DASHBOARD_KEY = "Shooter/Tuning/CurrentFlywheelRps";

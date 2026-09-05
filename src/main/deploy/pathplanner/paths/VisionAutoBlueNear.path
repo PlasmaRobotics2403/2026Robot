@@ -1,0 +1,184 @@
+{
+  "version": "2025.0",
+  "waypoints": [
+    {
+      "anchor": {
+        "x": 3.524455555555555,
+        "y": 0.5952111111111105
+      },
+      "prevControl": null,
+      "nextControl": {
+        "x": 4.307389282433527,
+        "y": 0.6343946409434191
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 6.174944444444446,
+        "y": 0.5952111111111105
+      },
+      "prevControl": {
+        "x": 5.447691311040024,
+        "y": 0.5954976949052372
+      },
+      "nextControl": {
+        "x": 7.073241719765288,
+        "y": 0.5948571250922259
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 7.880222222222223,
+        "y": 1.5599111111111097
+      },
+      "prevControl": {
+        "x": 7.365585878517975,
+        "y": 0.9428756903944434
+      },
+      "nextControl": {
+        "x": 8.040349133184199,
+        "y": 1.7518990596541768
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 7.880222222222223,
+        "y": 3.235955555555555
+      },
+      "prevControl": {
+        "x": 8.290366863016917,
+        "y": 2.8715818814744747
+      },
+      "nextControl": {
+        "x": 7.330211022621503,
+        "y": 3.724587081243527
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 6.174944444444446,
+        "y": 2.5733333333333324
+      },
+      "prevControl": {
+        "x": 6.478174183470368,
+        "y": 2.709688854726831
+      },
+      "nextControl": {
+        "x": 5.73272296428978,
+        "y": 2.3744763851606483
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 3.524455555555555,
+        "y": 2.5733333333333324
+      },
+      "prevControl": {
+        "x": 3.9684842093067645,
+        "y": 2.7469948520547343
+      },
+      "nextControl": {
+        "x": 2.90117615210505,
+        "y": 2.32956607444911
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 2.813111111111111,
+        "y": 1.3942555555555556
+      },
+      "prevControl": {
+        "x": 2.815608985545333,
+        "y": 1.702782389005372
+      },
+      "nextControl": {
+        "x": 2.8109151578240144,
+        "y": 1.1230207389492737
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 3.524455555555555,
+        "y": 0.5952111111111105
+      },
+      "prevControl": {
+        "x": 3.191883769847827,
+        "y": 0.542292234740492
+      },
+      "nextControl": null,
+      "isLocked": false,
+      "linkedName": null
+    }
+  ],
+  "rotationTargets": [
+    {
+      "waypointRelativePos": 1,
+      "rotationDegrees": 0.0
+    },
+    {
+      "waypointRelativePos": 2,
+      "rotationDegrees": 90.0
+    },
+    {
+      "waypointRelativePos": 3,
+      "rotationDegrees": 88.26429541107179
+    },
+    {
+      "waypointRelativePos": 4,
+      "rotationDegrees": -124.01934998982644
+    },
+    {
+      "waypointRelativePos": 5,
+      "rotationDegrees": -125.10607933026456
+    }
+  ],
+  "constraintZones": [],
+  "pointTowardsZones": [],
+  "eventMarkers": [
+    {
+      "name": "Deploy Intake",
+      "waypointRelativePos": 0,
+      "endWaypointRelativePos": null,
+      "command": null
+    },
+    {
+      "name": "Start Auto Shooting",
+      "waypointRelativePos": 5.454094292803852,
+      "endWaypointRelativePos": null,
+      "command": null
+    }
+  ],
+  "globalConstraints": {
+    "maxVelocity": 16.0,
+    "maxAcceleration": 9.0,
+    "maxAngularVelocity": 540.0,
+    "maxAngularAcceleration": 720.0,
+    "nominalVoltage": 12.0,
+    "unlimited": false
+  },
+  "goalEndState": {
+    "velocity": 0,
+    "rotation": 0.0
+  },
+  "reversed": false,
+  "folder": null,
+  "idealStartingState": {
+    "velocity": 0,
+    "rotation": 0.0
+  },
+  "useDefaultConstraints": false
+}

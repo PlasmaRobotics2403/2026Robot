@@ -40,6 +40,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.Constants;
+import frc.robot.Constants.DriveConstants;
 import frc.robot.Constants.Mode;
 import frc.robot.Constants.TurretConstants;
 import frc.robot.generated.TunerConstants;
@@ -143,15 +144,20 @@ public class Drive extends SubsystemBase implements Vision.VisionConsumer {
 
         PhoenixOdometryThread.getInstance().start();
 
-        AutoBuilder.configure(
+        AutoBuilder.configureCustom(
+                path -> new ReplanningPathCommand(
+                        path,
+                        this::getPose,
+                        this::getChassisSpeeds,
+                        this::runVelocity,
+                        Drive::createPathController,
+                        PP_CONFIG,
+                        () -> DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red,
+                        this),
                 this::getPose,
                 this::resetOdometry,
-                this::getChassisSpeeds,
-                this::runVelocity,
-                new PPHolonomicDriveController(new PIDConstants(11.0, 0.0, 0.0), new PIDConstants(10.0, 0.0, 0.0)),
-                PP_CONFIG,
                 () -> DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red,
-                this);
+                true);
         Pathfinding.setPathfinder(new LocalADStarAK());
         PathPlannerLogging.setLogActivePathCallback((activePath) -> {
             Logger.recordOutput("Odometry/Trajectory", activePath.toArray(new Pose2d[activePath.size()]));
@@ -167,6 +173,18 @@ public class Drive extends SubsystemBase implements Vision.VisionConsumer {
         SmartDashboard.putNumber("VelocityToMetersConstant", velocityToMetersConstant);
     }
 
+    private static PPHolonomicDriveController createPathController() {
+        return new PPHolonomicDriveController(
+                new PIDConstants(
+                        DriveConstants.PATHPLANNER_TRANSLATION_KP,
+                        DriveConstants.PATHPLANNER_TRANSLATION_KI,
+                        DriveConstants.PATHPLANNER_TRANSLATION_KD),
+                new PIDConstants(
+                        DriveConstants.PATHPLANNER_ROTATION_KP,
+                        DriveConstants.PATHPLANNER_ROTATION_KI,
+                        DriveConstants.PATHPLANNER_ROTATION_KD));
+    }
+
     @Override
     public void periodic() {
         odometryLock.lock();
@@ -174,7 +192,7 @@ public class Drive extends SubsystemBase implements Vision.VisionConsumer {
         Logger.processInputs("Drive/Gyro", gyroInputs);
         Logger.recordOutput("Swerve/Estimated Pos", getPose());
 
-        velocityToMetersConstant = SmartDashboard.getNumber("VelocityToMetersConstant", 0);
+        velocityToMetersConstant = SmartDashboard.getNumber("VelocityToMetersConstant", -1);
 
         for (var module : modules) {
             module.periodic();

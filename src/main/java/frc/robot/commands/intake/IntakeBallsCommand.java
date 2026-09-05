@@ -1,39 +1,35 @@
 package frc.robot.commands.intake;
 
-import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.Constants.IntakeConstants;
+import frc.robot.subsystems.IndexerSubsystem;
 import frc.robot.subsystems.IntakeSubsystem;
 
 public class IntakeBallsCommand extends Command {
     private IntakeSubsystem intake;
-    private final Timer timer = new Timer();
+    private IndexerSubsystem indexer;
 
-    public IntakeBallsCommand(IntakeSubsystem intake) {
+    public IntakeBallsCommand(IntakeSubsystem intake, IndexerSubsystem indexer) {
         this.intake = intake;
-        addRequirements(intake);
+        this.indexer = indexer;
+        addRequirements(intake, indexer);
     }
 
     @Override
     public void initialize() {
         intake.setPivotTargetDegrees(IntakeConstants.DEPLOY_DEG);
-        timer.restart();
+        intake.runRollersIn(IntakeConstants.ROLLER_PERCENT);
     }
 
     @Override
     public void execute() {
-        if (timer.hasElapsed(0.3)) {
-            intake.runRollersIn(IntakeConstants.ROLLER_PERCENT);
-        } else {
-            intake.stopRoller();
-        }
+        indexer.setSpindexerDutyCycle(0.2);
     }
 
     @Override
     public void end(boolean interrupted) {
         intake.setPivotTargetDegrees(IntakeConstants.DEPLOY_DEG);
         intake.stopRoller();
-        timer.stop();
     }
 
     @Override

@@ -28,6 +28,7 @@ public class VisionConstants {
 
     // camera0 = turret alignment only, camera1 = rear localization
     public static boolean[] cameraLocalizationEnabled = new boolean[] {true, true, true};
+    public static boolean enableVisionInAuto = true;
 
     public static double maxAmbiguity = 0.1;
     public static double maxZError = 1;

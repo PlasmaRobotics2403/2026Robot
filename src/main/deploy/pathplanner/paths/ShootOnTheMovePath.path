@@ -3,25 +3,41 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 3.556,
-        "y": 4.053616021720291
+        "x": 1.5,
+        "y": 7.0
       },
       "prevControl": null,
       "nextControl": {
-        "x": 3.8726565195775313,
-        "y": 4.030573651410567
+        "x": 1.5,
+        "y": 6.314251069900142
       },
       "isLocked": false,
       "linkedName": null
     },
     {
       "anchor": {
-        "x": 1.556,
-        "y": 4.053616021720291
+        "x": 1.5,
+        "y": 4.463755555555554
       },
       "prevControl": {
-        "x": 2.1489624354986785,
-        "y": 4.042484320279868
+        "x": 1.5,
+        "y": 5.188782410539438
+      },
+      "nextControl": {
+        "x": 1.5,
+        "y": 3.738728700571671
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 1.5,
+        "y": 7.0
+      },
+      "prevControl": {
+        "x": 1.4976111111111112,
+        "y": 5.555133333333333
       },
       "nextControl": null,
       "isLocked": false,
@@ -33,16 +49,26 @@
   "pointTowardsZones": [],
   "eventMarkers": [
     {
-      "name": "Deploy Intake",
-      "waypointRelativePos": 0.41389578163771057,
+      "name": "Start Auto Shooting",
+      "waypointRelativePos": 0.2054590570719602,
       "endWaypointRelativePos": null,
-      "command": null
+      "command": {
+        "type": "named",
+        "data": {
+          "name": "Start Auto Shooting"
+        }
+      }
     },
     {
-      "name": "Stow Intake",
-      "waypointRelativePos": 0.854590570719606,
+      "name": "Stop Auto Shooting",
+      "waypointRelativePos": 2.0,
       "endWaypointRelativePos": null,
-      "command": null
+      "command": {
+        "type": "named",
+        "data": {
+          "name": "Stop Auto Shooting"
+        }
+      }
     }
   ],
   "globalConstraints": {
@@ -60,7 +86,7 @@
   "reversed": false,
   "folder": null,
   "idealStartingState": {
-    "velocity": 0.0,
+    "velocity": 0,
     "rotation": 180.0
   },
   "useDefaultConstraints": true
