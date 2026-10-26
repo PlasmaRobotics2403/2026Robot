@@ -1,5 +1,6 @@
 package frc.robot.commands.shooter;
 
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.Constants.ShooterConstants;
 import frc.robot.subsystems.IndexerSubsystem;
@@ -13,6 +14,7 @@ public class ShootFromDistanceToHubCommandAuto extends Command {
     private final IndexerSubsystem indexer;
     private final Drive drive;
     private final TestTurretSubsystem turret;
+    private final Timer timer = new Timer();
 
     public ShootFromDistanceToHubCommandAuto(
             Shooter shooter, IndexerSubsystem indexer, Drive drive, TestTurretSubsystem turret) {
@@ -27,31 +29,33 @@ public class ShootFromDistanceToHubCommandAuto extends Command {
 
     @Override
     public void initialize() {
+        timer.restart();
         stopFeeders();
         Logger.recordOutput("AutoShoot/CommandActive", true);
+        HubShotController.updateShotSolution(shooter, turret, drive);
     }
 
     @Override
     public void execute() {
         boolean shotSolutionValid = HubShotController.updateShotSolution(shooter, turret, drive);
-
-        boolean flywheelReady = shotSolutionValid && shooter.isFlywheelAtSetpoint();
-        boolean turretUnwinding = turret.isUnwinding();
-        boolean feeding = shouldFeed(shotSolutionValid, flywheelReady, turretUnwinding);
+        boolean feeding = timer.hasElapsed(0.5);
         if (feeding) {
             indexer.setSpindexerDutyCycle(ShooterConstants.SPINDEXER_FEED_DUTY);
             indexer.setShooterIndexerDutyCycle(ShooterConstants.SHOOTER_KICKER_FEED_DUTY);
         } else {
             stopFeeders();
         }
+        boolean turretUnwinding = turret.isUnwinding();
 
-        Logger.recordOutput("AutoShoot/FlywheelReady", flywheelReady);
+        Logger.recordOutput("AutoShoot/ShotSolutionValid", shotSolutionValid);
+        Logger.recordOutput("AutoShoot/FlywheelReady", shotSolutionValid && shooter.isFlywheelAtSetpoint());
         Logger.recordOutput("AutoShoot/TurretUnwinding", turretUnwinding);
         Logger.recordOutput("AutoShoot/Feeding", feeding);
     }
 
     @Override
     public void end(boolean interrupted) {
+        timer.stop();
         shooter.stopFlywheel();
         shooter.setHoodAngleDegrees(ShooterConstants.HOOD_TARGET_DEGREES_DASHBOARD_DEFAULT);
         turret.clearUnwinding();

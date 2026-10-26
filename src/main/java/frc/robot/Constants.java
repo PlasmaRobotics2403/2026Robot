@@ -165,8 +165,8 @@ public final class Constants {
         public static final double FLYWHEEL_DISTANCE_SLOPE_RPS_PER_METER = 0.0;
         public static final double FLYWHEEL_DISTANCE_INTERCEPT_RPS = FLYWHEEL_DEFAULT_RPS;
 
-        public static final double SPINDEXER_FEED_DUTY = 0.50;
-        public static final double SHOOTER_KICKER_FEED_DUTY = 0.6;
+        public static final double SPINDEXER_FEED_DUTY = 1.00;
+        public static final double SHOOTER_KICKER_FEED_DUTY = 1.00;
 
         public static final double FLYWHEEL_TEST_MAX_DUTY = 0.50;
         public static final double HOOD_TEST_MAX_DUTY = 0.25;

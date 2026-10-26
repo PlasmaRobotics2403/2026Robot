@@ -10,6 +10,7 @@ import static frc.robot.subsystems.vision.VisionConstants.robotToCamera2;
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 import com.pathplanner.lib.commands.PathPlannerAuto;
+import com.pathplanner.lib.events.EventTrigger;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -28,9 +29,11 @@ import frc.robot.Constants.TurretConstants;
 import frc.robot.commands.DriveCommands;
 import frc.robot.commands.intake.IntakeBallsCommand;
 import frc.robot.commands.intake.IntakeOnlyCommand;
+import frc.robot.commands.intake.IntakeOnlyCommandAuto;
 import frc.robot.commands.intake.IntakeStowCommand;
 import frc.robot.commands.intake.OutakeBallsCommand;
 import frc.robot.commands.intake.RunIndexterDutyCycle;
+import frc.robot.commands.shooter.AutoShootEvents;
 import frc.robot.commands.shooter.ShootAutoCommand;
 import frc.robot.commands.shooter.ShootCommand;
 import frc.robot.commands.shooter.ShootFromDistanceToHubCommand;
@@ -80,6 +83,7 @@ public class RobotContainer {
     private final Vision vision;
     private final Drive drive;
     private final Shooter shooter;
+    private final AutoShootEvents autoShootEvents;
     private final IndexerSubsystem indexer = new IndexerSubsystem();
     private SwerveDriveSimulation driveSimulation = null;
 
@@ -138,8 +142,6 @@ public class RobotContainer {
                 shooter = new Shooter(new ShooterIOSim(), this::calculateDistanceToTargetMeters, drive);
                 cam0VisionIO = new VisionIOPhotonVision(camera0Name, robotToCamera0, drive);
                 break;
-
-
             default:
                 drive = new Drive(
                         new GyroIO() {},
@@ -154,7 +156,13 @@ public class RobotContainer {
                 break;
         }
 
+        autoShootEvents =
+                new AutoShootEvents(new ShootFromDistanceToHubCommandAuto(shooter, indexer, drive, testTurret));
         registerNamedCommands();
+        new EventTrigger("Shoot").onTrue(Commands.runOnce(autoShootEvents::requestStart));
+        new EventTrigger("Start Auto Shooting").onTrue(Commands.runOnce(autoShootEvents::requestStart));
+        new EventTrigger("Stop Auto Shooting").onTrue(Commands.runOnce(autoShootEvents::requestStop));
+        new EventTrigger("Stop Shooter").onTrue(Commands.runOnce(autoShootEvents::requestStop));
         SmartDashboard.putData("Field", field);
 
         autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
@@ -186,6 +194,9 @@ public class RobotContainer {
         autoChooser.addOption("RaceBlueNearAuto", buildRaceBlueNearAuto());
         autoChooser.addOption("RaceBlueFarAuto", buildRaceBlueFarAuto());
 
+        autoChooser.addOption("SafeBlueNearAuto", buildSafeBlueNearAuto());
+        autoChooser.addOption("SafeRedFarAuto", buildSafeRedFarAuto());
+
         // autoChooser.addOption("Shoot Only Near Blue", buildShootOnlyAutoNearBlue());
         // autoChooser.addOption("Shoot Only Far Blue", buildShootOnlyAutoFarBlue());
         // autoChooser.addOption("Shoot Only Near Red", buildShootOnlyAutoNearRed());
@@ -206,24 +217,27 @@ public class RobotContainer {
         configureButtonBindings();
     }
 
+    private void registerAutoCommand(String name, Command command) {
+        NamedCommands.registerCommand(name, autoShootEvents.wrapNamedCommand(command));
+    }
+
     private void registerNamedCommands() {
-        NamedCommands.registerCommand("Intake Only", new IntakeOnlyCommand(intake).withName("Intake Only"));
-        NamedCommands.registerCommand(
-                "Deploy Intake", new IntakeBallsCommand(intake, indexer).withName("Deploy Intake"));
+        registerAutoCommand("Intake Only", new IntakeOnlyCommandAuto(intake).withName("Intake Only"));
+        registerAutoCommand("Deploy Intake", new IntakeBallsCommand(intake, indexer).withName("Deploy Intake"));
 
-        NamedCommands.registerCommand("Stow Intake", new IntakeStowCommand(intake).withName("Stow Intake"));
+        registerAutoCommand("Stow Intake", new IntakeStowCommand(intake).withName("Stow Intake"));
 
-        NamedCommands.registerCommand(
+        registerAutoCommand(
                 "Static Shot",
                 new ShootAutoCommand(shooter, indexer, drive, testTurret, intake).withName("Static Shot"));
 
-        NamedCommands.registerCommand(
+        registerAutoCommand(
                 "Test Static Shot",
                 Commands.runOnce(() -> shooter.runShot(0.5, 55), shooter)
                         .andThen(Commands.runOnce(() -> testTurret.setTargetAngleRadians(Math.toRadians(-24))))
                         .andThen(Commands.runOnce(() -> indexer.index(0.5), indexer)));
 
-        NamedCommands.registerCommand(
+        registerAutoCommand(
                 "Stop Rollers",
                 Commands.runOnce(
                                 () -> {
@@ -233,15 +247,15 @@ public class RobotContainer {
                                 intake)
                         .withName("Stop Rollers"));
 
-        NamedCommands.registerCommand(
+        registerAutoCommand(
                 "Shoot", new ShootFromDistanceToHubCommandAuto(shooter, indexer, drive, testTurret).withName("Shoot"));
 
-        NamedCommands.registerCommand(
+        registerAutoCommand(
                 "Start Auto Shooting",
                 new ShootFromDistanceToHubCommandAuto(shooter, indexer, drive, testTurret)
                         .withName("Start Auto Shooting"));
 
-        NamedCommands.registerCommand(
+        registerAutoCommand(
                 "Stop Shooter",
                 Commands.runOnce(
                                 () -> {
@@ -256,7 +270,7 @@ public class RobotContainer {
                                 testTurret)
                         .withName("Stop Shooter"));
 
-        NamedCommands.registerCommand(
+        registerAutoCommand(
                 "Stop Auto Shooting",
                 Commands.runOnce(
                                 () -> {
@@ -642,6 +656,30 @@ public class RobotContainer {
                 .withName("RaceRedNearAuto");
     }
 
+    private Command buildSafeBlueNearAuto() {
+        return Commands.defer(
+                        () -> {
+                            PathPlannerAuto auto = new PathPlannerAuto("SafeBlueNearAuto");
+                            drive.resetOdometry(auto.getStartingPose());
+                            Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
+                            return auto;
+                        },
+                        java.util.Set.of(drive, intake, shooter, indexer, testTurret))
+                .withName("SafeBlueNearAuto");
+    }
+
+    private Command buildSafeRedFarAuto() {
+        return Commands.defer(
+                        () -> {
+                            PathPlannerAuto auto = new PathPlannerAuto("SafeBlueNearAuto");
+                            drive.resetOdometry(auto.getStartingPose());
+                            Logger.recordOutput("Auto/StartingPose", auto.getStartingPose());
+                            return auto;
+                        },
+                        java.util.Set.of(drive, intake, shooter, indexer, testTurret))
+                .withName("SafeRedFarAuto");
+    }
+
     private Command buildDriveForwardAuto() {
         PathPlannerAuto auto = new PathPlannerAuto(DRIVE_FORWARD_AUTO_FILE);
         drive.resetOdometry(auto.getStartingPose());
@@ -699,6 +737,7 @@ public class RobotContainer {
         // testTurret.setDefaultCommand(new TurretFollowOdometryCommand(vision, testTurret, drive, 0));
 
         controller.b().whileTrue(new TurretFollowCommand(vision, testTurret, drive, 0));
+        controller.a().whileTrue(new IntakeStowCommand(intake));
         navigator.povUp().onTrue(new TestTurretToPosCommand(testTurret, -90));
         navigator.povDown().onTrue(new TestTurretToPosCommand(testTurret, 90));
         navigator.povLeft().onTrue(new TestTurretToPosCommand(testTurret, 0));
@@ -782,7 +821,8 @@ public class RobotContainer {
     }
 
     public Command getAutonomousCommand() {
-        return autoChooser.get();
+        Command selected = autoChooser.get();
+        return selected == null ? null : autoShootEvents.wrapAuto(selected);
         // return Commands.runOnce(() -> shooter.runShot(0.5, 55), shooter)
         //         .andThen(Commands.runOnce(() -> testTurret.setTargetAngleRadians(Math.toRadians(-24))))
         //         .andThen(Commands.runOnce(() -> indexer.index(0.5), indexer))
@@ -907,6 +947,7 @@ public class RobotContainer {
     }
 
     public void stopShooter() {
+        autoShootEvents.requestStop();
         shooter.runFlywheelDutyCycle(0);
         indexer.setSpindexerDutyCycle(0);
         indexer.setShooterIndexerDutyCycle(0);

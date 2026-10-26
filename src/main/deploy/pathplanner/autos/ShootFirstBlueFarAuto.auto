@@ -30,9 +30,22 @@
           }
         },
         {
-          "type": "path",
+          "type": "deadline",
           "data": {
-            "pathName": "VisionAutoBlueFar"
+            "commands": [
+              {
+                "type": "wait",
+                "data": {
+                  "waitTime": 0.001
+                }
+              },
+              {
+                "type": "named",
+                "data": {
+                  "name": "Intake Only"
+                }
+              }
+            ]
           }
         },
         {
@@ -42,7 +55,45 @@
               {
                 "type": "wait",
                 "data": {
-                  "waitTime": 5.0
+                  "waitTime": 0.001
+                }
+              },
+              {
+                "type": "named",
+                "data": {
+                  "name": "Intake Only"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "deadline",
+          "data": {
+            "commands": [
+              {
+                "type": "wait",
+                "data": {
+                  "waitTime": 7.5
+                }
+              },
+              {
+                "type": "path",
+                "data": {
+                  "pathName": "VisionAutoBlueFar"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "deadline",
+          "data": {
+            "commands": [
+              {
+                "type": "wait",
+                "data": {
+                  "waitTime": 10.0
                 }
               },
               {
@@ -58,18 +109,6 @@
           "type": "named",
           "data": {
             "name": "Stop Auto Shooting"
-          }
-        },
-        {
-          "type": "path",
-          "data": {
-            "pathName": "VisionAutoBlueFar"
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "Start Auto Shooting"
           }
         }
       ]

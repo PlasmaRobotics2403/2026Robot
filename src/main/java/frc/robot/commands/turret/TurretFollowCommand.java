@@ -28,6 +28,7 @@ public class TurretFollowCommand extends Command {
 
     private int cameraIndex;
     private Timer timer = new Timer();
+
     double offset = 0;
 
     public TurretFollowCommand(Vision vision, TestTurretSubsystem turret, Drive drive, int cameraIndex) {
@@ -35,7 +36,6 @@ public class TurretFollowCommand extends Command {
         this.turret = turret;
         this.drive = drive;
         this.cameraIndex = cameraIndex;
-
         addRequirements(turret);
     }
 

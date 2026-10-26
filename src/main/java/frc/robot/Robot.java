@@ -90,6 +90,7 @@ public class Robot extends LoggedRobot {
 
     @Override
     public void disabledInit() {
+        robotContainer.stopShooter();
         robotContainer.resetSimulation();
     }
 
@@ -113,6 +114,12 @@ public class Robot extends LoggedRobot {
 
     @Override
     public void autonomousPeriodic() {}
+
+    @Override
+    public void autonomousExit() {
+        if (autonomousCommand != null) autonomousCommand.cancel();
+        robotContainer.stopShooter();
+    }
 
     @Override
     public void teleopInit() {

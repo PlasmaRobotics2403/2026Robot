@@ -19,11 +19,14 @@ public class IntakeBallsCommand extends Command {
     public void initialize() {
         intake.setPivotTargetDegrees(IntakeConstants.DEPLOY_DEG);
         intake.runRollersIn(IntakeConstants.ROLLER_PERCENT);
+
+        // intake.runRollersIn(IntakeConstants.ROLLER_PERCENT);
     }
 
     @Override
     public void execute() {
-        indexer.setSpindexerDutyCycle(0.2);
+
+        // indexer.setSpindexerDutyCycle(0.2);
     }
 
     @Override
